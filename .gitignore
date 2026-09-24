@@ -1,0 +1,40 @@
+# secrets: never commit keys
+.secrets/
+*.env
+.env.*
+!.env.example
+*.key
+*.pem
+keypair*.json
+id.json
+
+# runtime state and caches
+state/
+.cache/
+data/cache/
+*.local.json
+*.lock.json
+logs/
+*.log
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# node
+node_modules/
+.npm/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
+*.swp
