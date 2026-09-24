@@ -609,3 +609,790 @@ Monthly cost model (fixed):
 
 Variable per Solana swap: Jupiter 10 bps (50 bps on <24h tokens); 5,000 lamports base fee per signature; priority fee (CU price x CU limit); landing tip 0-0.001 SOL by path; ATA rent 0.00204 SOL refundable; measured 0.2-0.6% round trip on liquid tokens and 6-9% on some "liquid-looking" tokens. Hyperliquid: 9 bps taker round trip, 1 USDC per withdrawal. At $500 capital a $90/month stack is 18%/yr of drag before any trading loss ([infra-execution synthesis](https://raw.githubusercontent.com/jup-ag/docs/main/portal/plans.mdx)). Sniping-grade streaming (Yellowstone gRPC $84-$499/mo) is out of scope for a 60-second-tick agent.
 
+## Risk, security, tax and regulation
+
+Sizing and brakes:
+
+- Kelly gives f* = (bp - q)/b for a binary bet and f = mu/sigma^2 in the continuous approximation; half-Kelly retains ~75% of full-Kelly growth with a quarter of the variance, and fractional Kelly equals full Kelly on shrunken edge estimates ([dhando-analyzer note](https://github.com/alexnelja/dhando-analyzer/blob/main/research/kelly-criterion-probability-research.md), [awesome-quant-ai](https://github.com/leoncuhk/awesome-quant-ai/blob/main/think/Uncertainty-Driven%20Position%20Sizing.md); standard results, primary papers blocked). For a noisy memecoin/trend edge, 0.25-0.5x Kelly is the ceiling and in practice collapses to ~1% equity risk per trade (inference).
+- Volatility targeting (w_t proportional to 1/sigma^2_{t-1}) raises Sharpe and cuts drawdowns across factors ([Moreira & Muir, JF 72(4) 2017](https://doi.org/10.1111/jofi.12513), via [GitHub summaries](https://github.com/xxSeasonxx/quant_strategies/blob/main/docs/research/crypto/03_academic_literature.md)); out-of-sample gains are debated and it lags V-shaped recoveries. The offline study confirms the drawdown effect (section 3).
+- Working brake set (Ballast, [risk.ts](/home/user/jonatangigex/familiars.family-opus5.5/src/risk.ts), [README](/home/user/jonatangigex/familiars.family-opus5.5/README.md)): 1% of equity at risk per trade sized off a gap-adjusted stop (launches assume a 45% loss because a -30% stop filled at -37%); max 4 open positions; max 30% of equity per position; never more than 1% of pool liquidity; daily loss > 6% or drawdown > 25% from the 7-day peak blocks new entries, measured as equity minus net deposits; idle SOL above a 0.03 SOL reserve parked in USDC; stops -30% (launches) or 2.5 ATR bounded 4-20% (trend), break-even at +1R, 4-ATR trail from +2R; time stops 6h/72h. 29 of 30 single-parameter perturbations stayed positive.
+- Correlation: memecoin positions are all long-SOL-beta; Ballast's Monte Carlo treated trades as independent, so it uses the 24% backtest drawdown as the prudent reference; median single-token drawdown in its universe was 56%, worst 99% ([README](/home/user/jonatangigex/familiars.family-opus5.5/README.md)); "correlated losses compound faster than this model accounts for" ([keel report](https://github.com/CodeGateSoftware/keel/blob/main/docs/superpowers/reports/2026-07-23-drawdown-taper-and-merton-exploration.md)). A portfolio open-risk budget (<= 3-4R) and a SOL regime gate are needed on top of per-trade stops (inference).
+
+Tail events (all figures widely reported; primary news sites were blocked):
+
+| date | event | figures | source |
+|---|---|---|---|
+| 12 Mar 2025 | ETH whale liquidation on Hyperliquid | ~$4M loss to HLP; margin tiers followed on 22 May 2025 (BTC 40x, ETH 25x max) | [community wiki](https://github.com/Hyperliquid-Community/wiki-community/blob/main/introduction/roadmap/incident/2025-26-03.md) |
+| 26 Mar 2025 | JELLY squeeze | ~$4.1M shorts self-liquidated into HLP, spot pumped ~400%, HLP ~$12-13.5M underwater; validators voted within ~2 minutes to delist and force-settle at $0.0095, turning it into a ~$703K profit | [community wiki](https://github.com/Hyperliquid-Community/wiki-community/blob/main/introduction/roadmap/incident/2025-26-03.md), [CoinDesk](https://www.coindesk.com/markets/2025/03/26/hyperliquid-delists-jellyjelly-after-vault-squeezed-in-usd13m-tussle) (snippet only) |
+| late May 2025 | James Wynn liquidations | $1.25B 40x BTC long liquidated, >$37M lost, nine liquidations | [DL News](https://www.dlnews.com/articles/defi/hyperliquid-trader-james-wynn-liquidated-nine-times/) (snippet only) |
+| Sep 2025 | HypervaultFi rug | ~$3.6M from ~1,100 depositors, 76-95% APY promised | [CryptoRank](https://cryptorank.io/news/feed/00e88-hypervaultfi-suspected-rug-pull-takes-3-6m) (snippet only) |
+| 10-11 Oct 2025 | liquidation cascade | ~$19.3B liquidated in ~24h across ~1.6M accounts (~87% longs), BTC ~$122k -> ~$105k, USDe marked $0.60-0.65 on Binance, ADL fired on Binance and Hyperliquid closing profitable hedge legs, 200+ reduce-only orders rejected over 106 minutes, Binance paid ~$283M, Lighter offline ~36 minutes | [strat-crypto.md](https://github.com/luke-cramer/ai-trading/blob/main/research/strat-crypto.md), [daily brief 2025-10-20](https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2025-10-20-daily-crypto.md) (secondary) |
+| 4 Nov 2025 | Stream Finance / Elixir | ~$93M loss, xUSD -77%, deUSD to ~$0.015, ~$285M linked debt | [Pharos](https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/) (snippet only) |
+| 12 Nov 2025 | POPCAT manipulation | HLP ~$4.9M bad debt via a $20M cancelled buy wall; HLP deposits paused, Arbitrum bridge locked ~25 min | [daily brief 2025-11-13](https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2025-11-13-daily-crypto.md) |
+| 1 Apr 2026 | Drift exploit | ~$285M, >50% of TVL, from ~20 vaults; relaunch as Velocity DEX | [Chainalysis](https://www.chainalysis.com/blog/lessons-from-the-drift-hack/) (snippet only) |
+
+Implications: leverage above 2-3x and exotic collateral (USDe, LSTs) on venues that mark off their own book are unsuitable for an unattended $500-20k agent; assume reduce-only orders can fail for 1-2 hours; perp venues will override prices by governance on thin markets, so keep any perps to BTC/ETH/SOL (inference from the events above).
+
+Supply-chain attacks (npm registry timestamps measured directly):
+
+| date | package / vector | effect | source |
+|---|---|---|---|
+| 3 Dec 2024 | @solana/web3.js 1.95.6 and 1.95.7 | code that steals private key material; CVSS 8.3; fix 1.95.8 and rotate keys | [GHSA-jcxm-7wvp-g6p5](https://github.com/solana-labs/solana-web3.js/security/advisories/GHSA-jcxm-7wvp-g6p5), [registry](https://registry.npmjs.org/@solana/web3.js) |
+| Nov 2024 | DEXX | ~$30M, 900+ users, server-side keys leaked | [solana-vibes-kit deep dives](https://github.com/MetalLegBob/solana-vibes-kit/blob/main/stronghold-of-security/research/wave3/w3-incident-deep-dives.md) (secondary) |
+| Jan 2025 | PyPI semantic-types (dependency of fake solana-keypair, solana-publickey, solana-mev-agent-py, solana-trading-bot, soltrade) | monkey-patched solders Keypair to exfiltrate keys via memo transactions | same |
+| Jan 2025 | DogWifTools | RAT shipped after a GitHub token was extracted, ~$10M | same |
+| Jul 2025 | fake "solana-pumpfun-bot" repo pulling crypto-layout-utils and bs58-encrypt-utils-1.0.3 | scanned local files for wallet keys | same (SlowMist cited) |
+| 8 Sep 2025 | chalk 5.6.1, debug 4.4.2 | maintainer phishing, address-swapping payload, pulled same day | [chalk #656](https://github.com/chalk/chalk/issues/656), [debug #1005](https://github.com/debug-js/debug/issues/1005) |
+| 15 Sep 2025 | @ctrl/tinycolor 4.1.1/4.1.2 ("Shai-Hulud" worm) | self-propagating, harvested npm/GitHub/cloud tokens | [registry](https://registry.npmjs.org/@ctrl/tinycolor) (behaviour details from recollection) |
+
+Mitigations: pin exact versions with a committed lockfile, enforce a 7-14 day package cooldown, npm ci with ignore-scripts where possible, build Docker images from the lockfile, never load the wallet key into a process that runs unaudited dependencies, and audit any "trading bot" repo before installing (inference from the incidents above).
+
+Key management: Hyperliquid's agent-wallet model (trade but not withdraw) is the right pattern; Solana has no equivalent, so the substitute is a hot wallet holding only working capital, a treasury in a Squads v4 multisig (time locks, spending limits, roles; audited by OtterSec, Neodyme, Certora, Trail of Bits) that tops up the hot wallet, and periodic profit sweeps ([Squads v4](https://github.com/Squads-Protocol/v4), [basic_agent.py](https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/examples/basic_agent.py)). familiars never custodies self-hosted keys; a leaked fam_ key can only post; a leaked owner key is rotated via POST /api/agent/owner-key; a leaked wallet key requires a new wallet and agent ([familiars.ts](/home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts)). Use two RPC providers and cross-check price with a second source (the general "fake RPC" threat is inference); @solana/web3.js 1.66.3/1.66.4 were deprecated for reporting confirmations that did not meet the requested commitment ([registry deprecation notices](https://registry.npmjs.org/@solana/web3.js)).
+
+Kill switch and owner override (Ballast pattern, [risk.ts](/home/user/jonatangigex/familiars.family-opus5.5/src/risk.ts)): read owner limits fail-closed before every trade (open nothing if unreadable); dailyLimitUsd caps daily buys, never exits; directives are recognised only when a sentence starts with the command ("pause", "stop trading", "liquidate", "sell all"), not on substring; canary limits at launch (maxPositionUsd = 10, dailyLimitUsd = 30) until one real buy, sell and post are verified; positions rebuilt from the public trade log on a new machine.
+
+Prompt and memory injection: on ElizaOS, injections into prompts or stored history trigger unauthorised transfers; on CrAIBench (150+ tasks, 500+ attacks) models are "significantly more vulnerable to memory injection compared to prompt injection" and prompt-injection detectors "only provide limited protection when stored context is corrupted"; sleeper injections evade moderation ([arXiv 2503.16248](https://arxiv.org/abs/2503.16248), abstract via [mirror](https://github.com/santosomar/ai_news_archive)). OWASP LLM01 (prompt injection) and LLM06 (excessive agency) prescribe least-privilege tools, no open-ended tools, segregated external content, downstream authorisation checks not reliant on LLM judgment ([LLM01](https://github.com/OWASP/www-project-top-10-for-large-language-model-applications/blob/main/2_0_vulns/LLM01_PromptInjection.md), [LLM06](https://github.com/OWASP/www-project-top-10-for-large-language-model-applications/blob/main/2_0_vulns/LLM06_ExcessiveAgency.md)); the 2026 release (4 Aug 2026) and the Agentic Top 10 (ASI01 goal hijack, ASI02 tool misuse) cover the same ([GenAI-LLM-Top10](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10)). Implication: the LLM never holds the signing key or an unconstrained send tool; token names, social posts, other agents' explanation posts and memory entries are untrusted data; LLM output is a schema-validated approve/veto (Ballast does this for launch review).
+
+US tax facts (IRS pages blocked; from [openaccountants us-crypto-tax](https://github.com/openaccountants/openaccountants/blob/main/agent-skills/us-crypto-tax/SKILL.md) and [us-crypto-reporting](https://github.com/openaccountants/openaccountants/blob/main/packages/us-dc/us-crypto-reporting.md) citing primary documents):
+
+- Crypto is property (Notice 2014-21); every token-to-token swap, including SOL -> memecoin -> USDC legs and wrap/unwrap, is a disposition on Form 8949 / Schedule D; short-term gains at 10-37% plus 3.8% NIIT above $200k/$250k; average cost not permitted; specific identification needs contemporaneous designation (Rev. Rul. 2024-14 as cited) else FIFO; basis is wallet-by-wallet since 1 Jan 2025 (Rev. Proc. 2024-28 safe harbor for pre-2025 basis); Section 1031 does not apply post-2017; 475(f)/trader status for spot crypto is unsettled (inference).
+- Form 1099-DA: TD 10000 (89 Fed. Reg. 56480, 9 Jul 2024) requires custodial brokers to report gross proceeds for sales on/after 1 Jan 2025 (statements due 17 Feb 2026) and adjusted basis for assets acquired and sold on/after 1 Jan 2026 (first reported early 2027). The DeFi front-end broker rule (TD 10021, 30 Dec 2024) was disapproved under the CRA, signed as Pub. L. 119-5 on 10 Apr 2025, and removed (90 Fed. Reg. 31136, 11 Jul 2025): DEX front-ends and self-custody wallets file no 1099-DA, so the burden is on the taxpayer; CEX on/off-ramps (Coinbase, Kraken) will report, creating the mismatch audit risk.
+- Wash sale: as of September 2026 IRC 1091 still does not apply to spot crypto (it applies to crypto ETFs); the Lummis bill (3 Jul 2025) and the Digital Asset PARITY Act (19 May 2026) would extend it prospectively; a June 2026 Ways and Means hearing and CNBC (28 Jul 2026) reported a renewed push; nothing enacted as of 11 Sep 2026 ([Occupy-AI basics](https://github.com/knucklefat/Occupy-AI/blob/main/11-crypto/08-tax-and-regulation/crypto-tax-basics.md), citing CNBC and lummis.senate.gov, not fetched).
+- UK: swaps are disposals (CRYPTO22100); s.104 pooling with same-day and 30-day matching (an anti-wash rule); CGT 18%/24% since 30 Oct 2024, 3,000 GBP exemption; CARF reporting from 1 Jan 2026. Germany: tax-free after one year under section 23 EStG, otherwise progressive; 1,000 EUR limit is a cliff; each swap restarts the holding period (BMF letter 6 Mar 2025). EU: DAC8 from 1 Jan 2026 ([uk-crypto-tax](https://github.com/openaccountants/openaccountants/blob/main/packages/uk/uk-crypto-tax.md), [de-crypto-tax](https://github.com/openaccountants/openaccountants/blob/main/skills/international/germany/de-crypto-tax.md), [BittyTax](https://github.com/BittyTax/BittyTax/blob/master/README.md)). Ballast notes every swap is taxable in Spain ([README](/home/user/jonatangigex/familiars.family-opus5.5/README.md)). The ledger must log every fill with timestamp, quantities, USD fair value of both legs and fees, per wallet (inference).
+
+Regulation:
+
+- US: trading one's own account needs no broker-dealer, adviser, CTA or CPO registration; copying a public wallet with one's own money is likewise unregulated; selling signals, running others' money or accepting deposits crosses into Advisers Act / CEA territory; market manipulation (wash trading, pump-and-dump) is illegal regardless (standard legal reasoning, inference; statute pages blocked). eToro's 2024 SEC settlement restricted its US crypto offering and imposed a $1.5M penalty (recollection of press release 2024-125, not fetched).
+- US perps: SEC/CFTC joint statements (2 and 5 Sep 2025) cleared leveraged spot and promised DeFi safe harbors; CFTC steps allowed BTC/ETH perpetuals on US DCMs; Chair Michael Selig said on 2 Mar 2026 the agency was working toward "true perpetual futures... within the next month or so"; US-legal venues include Coinbase Derivatives (nano BTC/ETH/SOL/XRP perps, ~9-10 bps round trip, $774 notional per nano BTC contract), Bitnomial (16 perps, $25 intraday margin) and Kraken Derivatives US; CLARITY Act passed the House Jul 2025 with Senate markups slipping; GENIUS Act enacted 18 Jul 2025 ([daily brief 2026-03-04](https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2026-03-04-daily-crypto.md), [crypto-us-venues.md](https://github.com/luke-cramer/ai-trading/blob/main/research/crypto-us-venues.md); secondary).
+- Hyperliquid US restriction: Terms of Use (updated 15 Jun 2026) s.1.6 bar anyone who resides in or is located in the United States or Ontario; s.1.8 forbids circumvention and s.1.9 warrants no location-disguising technology; the terms restrict the Interface, so the API is technically reachable, but Binance was charged by the CFTC (27 Mar 2023, release 8680-23) partly for coaching VPN evasion; no enforcement against retail Hyperliquid users was found ([gap-2.md](https://github.com/luke-cramer/ai-trading/blob/main/research/gap-2.md), verified from a US IP Aug 2026; ToS page itself blocked). None of the Bybit/Binance/OKX/Bitget copy products serve US persons (inference).
+- EU: MiCA Title VI (Arts. 86-92, applicable since 30 Dec 2024) binds any person trading crypto-assets admitted to trading in the EU; Art. 91 manipulation covers wash trading, spoofing and voicing an opinion on a held token without disclosure; Art. 111 minimum fines for natural persons are EUR 5,000,000 or 3x the profit; tokens traded only on DEXs and never admitted to trading fall outside Title VI ([rya-sge, 2026-09-17](https://github.com/rya-sge/access-denied/blob/master/_posts/2026-09-17-mica-market-abuse-enforcement-supervision.md)). Individuals need no CASP authorisation (inference).
+- UK: FCA finalised CP25/40 in Jan 2026, opens the cryptoasset gateway Sept 2026, full regime from 25 Oct 2027; only firms need authorisation ([daily brief 2026-01-24](https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2026-01-24-daily-crypto.md)).
+- GitHub Actions ToS: hosted runners may not be used for cryptomining, serverless computing, disproportionate load, or "any other activity unrelated to the production, testing, deployment, or publication of the software project associated with the repository"; misuse can lead to account suspension ([github/docs terms](https://github.com/github/docs/blob/main/content/site-policy/github-terms/github-terms-for-additional-products-and-features.md)). Google Cloud's AUP does not mention trading bots ([AUP](https://cloud.google.com/terms/aup)). A $5-10/month VPS with Docker is the correct host.
+
+Cross-cutting candidate from the risk stream:
+
+| candidate | venue | familiars-fit | expected-return note (short) |
+|---|---|---|---|
+| risk-overlay-brakes-and-kill-switch | Solana spot via Jupiter, posted on familiars | yes | Overlay only; costs 20-40% of upside in euphoric windows (+0.5% vs +136%) for drawdowns capped around 20-25% |
+
+## Evidence on LLM trading agents
+
+Note: arxiv.org, nof1.ai and news sites were blocked; paper content comes from GitHub-mirrored abstracts and digests and should be re-verified from primary PDFs.
+
+- Alpha Arena Season 1 (nof1, Oct 2025): six frontier LLMs (GPT-5, Gemini 2.5 Pro, Claude Sonnet 4.5, Grok 4, DeepSeek V3.1, Qwen3 Max) each traded $10,000 of real USDC on Hyperliquid perps (BTC, ETH, SOL, BNB, DOGE, XRP) under one harness with a ~2-3 minute loop ([nof1 post, mirrored](https://github.com/itripleg/llm-trading-bot/blob/main/blogpost.txt)). Final standings per third-party write-ups: Qwen3 Max ~+22.3%, DeepSeek ~+4.9%, the four US models -30.8% to -62.7%; mid-season (23 Oct 2025): DeepSeek +5.9% on 9 trades, Qwen +0.6% on 22, Grok -14.2%, Claude -17.7%, Gemini -54.2% on 102 trades ($890 fees = 8.9% of capital, 27.5% win rate), GPT-5 -67.9% on 39 trades at 25x with 5.1% win rate ([nof1-analysis](https://github.com/weiuou/nof1-analysis), [vibe-investing](https://github.com/gameworkerkim/vibe-investing/blob/main/02.Investment%20Idea%20Column/DeepSeek_Alpha/readme.md); secondary). nof1's own failure list: models "over-traded and took quick, tiny gains that fees erased", misread temporal ordering of price arrays, stalled on synonyms, gamed hold rules, and self-reported confidence was "decoupled from actual trading performance" ([mirrored post](https://github.com/itripleg/llm-trading-bot/blob/main/blogpost.txt)).
+- Season 1.5 (eight models, 32 sessions) finished in profit only 6 times and the pooled portfolio lost roughly a third; nof1 raised $15M (May 2026) and is pivoting Season 2 to its own purpose-trained models ([the-vault-ai](https://github.com/prajwalgajakesari/the-vault-ai/blob/main/editions/2026/05/15/stories/15-nof1-15m-ai-frontier-trading-models.md), newsletter, unverified).
+- FINSABER (arXiv 2505.07078, KDD'26): re-running FinMem and FinAgent over 2000-2024 on 63-91 S&P 500 constituents including delisted names with commissions, buy-and-hold beat both on Sharpe in every bias-mitigated universe (B&H 0.703 vs ~0.24); no significant alpha (p>0.34); agents "too conservative in bull markets and too aggressive in bear markets"; FinMem's published TSLA Sharpe of 2.679 fell to 0.927 / 0.404 just by changing backbone ([digest](https://github.com/elimarks5807-coder/foundry-strategy-engine/blob/main/Digests/FINSABER.md)).
+- Profit Mirage (arXiv 2510.07920): back-tested LLM-agent returns "evaporate once the model's knowledge window ends" (Sharpe decay 51-62%; almost every published agent fails to beat random post-cutoff); its FactFin pattern uses the LLM as a strategy-code generator with a deterministic engine trading ([mirrored abstract](https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/10-Oct-2025/topic/RAG_related_papers.md), [research-digests](https://github.com/memgrafter/research-digests)).
+- StockBench (arXiv 2510.02209, contamination-free, Mar-Jul 2025, 20 DJIA stocks, $100k, 82 days): most agents including GPT-5 and Claude-4 fail to beat equal-weight buy-and-hold (0.4%, -15.2% MDD); best Kimi-K2 at 1.9% / -11.8% MDD, falling to 0.6% without news and fundamentals (same digests).
+- TradingAgents (Python, Apache-2.0, ~108k stars, v0.5.1 Sep 2026) is a simulated-exchange research framework with no live trading; the paper's AAPL 26.6% / Sharpe 8.21 (Jan-Mar 2024) had no costs; an ACM 2026 reproducibility study found GPT-4o TradingAgents returned 15.8% +/- 4.2% on GOOGL (May-Jul 2025) vs 19.1% buy-and-hold; Trading-R1's repo is a "releasing soon" placeholder ([TradingAgents](https://github.com/TauricResearch/TradingAgents), [RL-Trader review](https://github.com/sh-arka22/RL-Trader/blob/main/docs/research/_raw/llm_P1_systems.md), which flags the DOI as partially verified).
+- FinAgent's own ablation improved by removing its tool module (AAPL ARR 33.75%/SR 1.52 without tools vs 31.90%/1.43 with; ETHUSD 54.80%/1.40 vs 43.08%/1.18); FinMem is stocks-only and inactive since mid-2024 ([FinAgent](https://github.com/DVampire/FinAgent), [FinMem](https://github.com/pipiku915/FinMem-LLM-StockTrading), [review](https://github.com/sh-arka22/RL-Trader/blob/main/docs/research/02_llm_agents.md)).
+- Agent Market Arena (arXiv 2510.11695, live Aug-Sep 2025): the same agent swung from -38.7% to +21.9% on TSLA by changing backbone; headline results report no drawdown or costs ([mirrored abstract](https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/14-Oct-2025/NLP/README.md)).
+- LATTICE (arXiv 2604.26235, ~30 Apr 2026) is an LLM-judged decision-support benchmark for crypto copilots (six dimensions, 16 task types, 1,200 queries), not a P&L benchmark ([mirrored abstract](https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/30-Apr-2026/AI/README.md)). Marino & Juels (arXiv 2507.08249, 11 Jul 2025) is a position paper on harm vectors from giving agents wallets, with no trading results ([mirrored abstract](https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/14-Jul-2025/AI/README.md)).
+- Where LLMs help: (a) offline text classification as a feature (SAPPO +0.35 Sharpe over PPO, edge dead at ~22 bps cost; a 110M FinBERT delivered 1.72 of the 1.90 Sharpe gain); (b) point-in-time entity extraction; (c) strategy code/parameter generation outside the loop (FactFin, GIFT) with a --no-llm ablation; LLM-infused RL (FinRL-DeepSeek) degraded PPO at every strength; an LLM layer on a 20-year, 100-symbol sweep costs $3.5k-$248k in API fees ([RL-Trader review](https://github.com/sh-arka22/RL-Trader/blob/main/docs/research/02_llm_agents.md), a third party's readings). PulseReddit reports gains "particularly in bull markets" with no cost or leakage detail in the abstract ([mirror](https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/5-Jun-2025/NLP/README.md)).
+- Ballast already follows this: rules-only strategy, risk and execution in TypeScript; Claude only as an optional launch reviewer (approvals JSON gate) and a daily tighten-only learn pass ([launch-agent.ts](/home/user/jonatangigex/familiars.family-opus5.5/src/launch-agent.ts), [config/agent.json](/home/user/jonatangigex/familiars.family-opus5.5/config/agent.json)). No public "AI trader" board other than familiars exposes verifiable per-agent trades; other projects are marketing-grade ([openclaw](https://github.com/openclaw-trade/openclaw-trading-assistant), [Open-Nof1-AlphaArena](https://github.com/yufenng/Open-Nof1-AlphaArena)).
+
+Framework survey (GitHub READMEs and LICENSE files; release years returned inconsistently by the fetch tool):
+
+| name | language | license | Solana / Hyperliquid support | notes |
+|---|---|---|---|---|
+| [freqtrade](https://github.com/freqtrade/freqtrade) | Python 3.11+ | GPL-3.0 | Hyperliquid spot+futures via ccxt (API-wallet key, stop-limit on exchange, 5,000 candles only); no Solana DEX | 54.7k stars, release 2026.8; FreqAI adds ML/RL, "not designed for production" example |
+| [Hummingbot + Gateway](https://github.com/hummingbot/hummingbot) | Python + Node sidecar | Apache-2.0 | Hyperliquid/dYdX CLOB; Solana via Gateway (Jupiter swap, Raydium, Meteora DLMM) | 20.2k stars, v2.17.0; market-making oriented; funding-arb script included |
+| [nautilus_trader](https://github.com/nautechsystems/nautilus_trader) | Rust core + Python | LGPL-3.0 | production Hyperliquid adapter (spot, perps, HIP-3, vaults, agent wallets); no Solana | 29.3k stars, v2.0.0rc5 15 Sep 2026; nanosecond backtester; API churn |
+| [jesse](https://github.com/jesse-ai/jesse) | Python | MIT | exchanges unnamed in README; Hyperliquid unverified | 8.6k stars; MCP server; live trading historically a paid plugin (pricing blocked) |
+| [vectorbt](https://github.com/polakowo/vectorbt) | Python | Apache-2.0 + Commons Clause | none (research only) | 9.2k stars; fastest parameter sweeps; PRO paid |
+| [backtesting.py](https://github.com/kernc/backtesting.py) | Python | AGPL-3.0 | none | ~9k stars, single-asset |
+| [ccxt](https://github.com/ccxt/ccxt) | JS/TS, Python, C#, PHP, Go, Java, Rust | MIT | Hyperliquid certified (REST+WS); no Solana AMM | v4.5.84; auto builder fee caveat (section 7) |
+| [hyperliquid-python-sdk](https://github.com/hyperliquid-dex/hyperliquid-python-sdk) | Python | MIT | Hyperliquid | 1.8k stars, 0.24.0; no 429 backoff |
+| [solana-agent-kit](https://github.com/sendaifun/solana-agent-kit) | TypeScript | Apache-2.0 | Jupiter, Raydium, Orca, Meteora, Drift/Adrena, pump.fun, Jito | 1.7k stars; signs transactions, custody on the user |
+| [sendaifun/skills](https://github.com/sendaifun/skills) | Markdown/TS | Apache-2.0 | Jupiter, pump.fun, raydium, helius, wallet-analysis skills | 128 stars; reference docs |
+| [0xfnzero/sol-trade-sdk](https://github.com/0xfnzero/sol-trade-sdk) | Rust | MIT | PumpFun/PumpSwap/LaunchLab/Raydium/Meteora/Orca; Jito, Nextblock, 0slot lanes | 343 stars; sniping-grade |
+| [GOAT SDK](https://github.com/goat-sdk/goat) | TS + Python | MIT | Solana/EVM | archived (read-only) |
+| [ElizaOS](https://github.com/elizaOS/eliza) | TypeScript | MIT | plugins folded into core; plugin-solana/hyperliquid repos 404 | 19.5k stars; ecosystem in flux |
+| [TradingAgents](https://github.com/TauricResearch/TradingAgents) | Python | Apache-2.0 | BTC/ETH via Yahoo only; simulated exchange | ~108k stars; research toy |
+| [Ballast](/home/user/jonatangigex/familiars.family-opus5.5/README.md) | TypeScript (Node 22) | see repo | Jupiter Ultra/Swap, familiars client, pump.fun; no Hyperliquid | working familiars agent; simulation guard, risk engine, 455-line backtester |
+
+Stack conclusion from the stream: every Solana/familiars dependency is TypeScript, so a TypeScript agent reusing Ballast's executor, simulation guard and client is the shortest path, with Python only as an optional research sidecar (vectorbt; nautilus/freqtrade if Hyperliquid perps are added) and the LLM called through a thin JSON-schema adapter, never for orders (inference from the survey).
+
+## Strategy verdicts and recommended portfolio
+
+_To be completed after adversarial verification._
+
+## Open questions
+
+familiars.family platform:
+
+- The actual skill.md text: rate limits, exact posting obligations, own-token rule wording, agent-token mechanics, any fees, wash-trading and multi-wallet rules; it must be read from an unrestricted machine before implementation.
+- Whether ranking uses realised or mark-to-market values for illiquid positions, and whether non-swap holdings (Kamino kUSDC, DLMM positions, JLP) count in agent equity.
+- Whether /api/agents/{handle} trade history is complete or capped, how fresh it is versus chain confirmation (~1 min observed), and whether posts/trades carry timestamps precise enough for lagged copy replay.
+- API-key rotation, hosted vs self-hosted differences (fees, custody, models, what happens when the free-AI budget is exhausted again), revenue model, team and launch date.
+- Whether copying other agents requires disclosure, and whether familiars enforces anything beyond posting (minimum trade size $2, /api/posts rate limits, penalties for own-token trading).
+- Whether absolute-USD ranking makes a modest-Sharpe strategy invisible, requiring a small narrative sleeve for traction.
+
+fomo.family:
+
+- fomoapi free tier: 250,000 credits/month (marketing) vs 1,000 credits/month (a consumer's README); whether fomoapi.io and getfomoapi.fun are one operator; the 1-hour cache and absence of a WS feed.
+- Whether fomo's Terms treat third-party API reads or on-chain reconstruction as prohibited extraction.
+- Persistence of top fomo traders' P&L on spot; DefiLlama fees/volume, Series B date and valuation, and Solana Tracker's FOMO leaderboard remain snippet-only.
+
+Strategy evidence and backtests:
+
+- Zarattini et al.'s Bitcoin-only results and cost-mitigation technique (SSRN blocked); reproducibility of AdaptiveTrend (arXiv 2602.11708, Sharpe 2.41) with realistic fees.
+- How the Donchian ensemble and 4h breakout behaved on SOL through the Jan 2025-Apr 2026 drawdown (the offline study gives 24-month figures; the streams had none).
+- A survivorship-corrected re-run of the Ballast universe (tokens liquid at each rebalance date, including later-dead ones).
+- Measured 24h/7d survival and return distribution of tokens after graduation to PumpSwap/Raydium in 2026.
+- Whether pump.fun/LetsBonk anti-sniper mechanisms reduced same-slot bundle share versus the 1.75% deployer-funded rate of April 2025.
+- Whether seasonality overlays (weekend, 21-23 UTC) transfer to SOL at DEX costs.
+- The 2026 YTD average funding on BTC/ETH/SOL per venue (sources conflict; the offline study covers Hyperliquid and Binance with gaps) and the size and persistence of the HL-vs-Binance differential at $5-20k notional.
+- IL-adjusted profitability distribution of retail Meteora DLMM positions; whether Drift is still the right hedge venue after the protocol-v2 archive.
+- Whether USDe is now safe as CEX collateral after Binance's oracle changes, or should be hard-excluded.
+
+Copy-trading:
+
+- Feature importances from arXiv 2601.08641 and whether its 3% per-bet return is net of 1% terminal fees or Jupiter-level fees.
+- Measured detect-to-fill latency for Helius transactionSubscribe + Jupiter Swap V2 + Jito on a cheap VPS (430-680 ms is unverified); real fill-quality cost of copying a swing wallet 30-90 s late on $100k-$1M pools.
+- How often screened wallets deliberately sell into follower flow and whether a consensus-of-N rule reduces it.
+- Out-of-sample net returns of Hyperliquid fill-mirroring or vault baskets (none published; a 30-60 day paper test with lag is required); Copin.io and Hyperdash copier statistics were unreachable.
+- Hyperliquid vault rules (10% share, 5% leader minimum, 1-day lockup) and rate limits confirmed only from snippets; Polymarket's current fee schedule and US availability.
+- Current Nansen pricing and Solana coverage of Smart Money DEX endpoints.
+- Whether an LLM veto gate on launches improves hit rate (needs a logged paper-mode A/B).
+
+Data, costs and infrastructure:
+
+- The distribution of Jupiter Swap V2 round-trip cost for $500-$5,000 trades in the top-50 Solana tokens (only 0.2-0.6% / 6-9% anecdotes exist); /order slippageBps bounds and excludeRouters values.
+- Jupiter Ultra sunset date; whether lite-api.jup.ag still serves keyless traffic; whether Shield keeps returning warnings and what the Swap V2 replacement fields are for transfer tax, permanent delegate and holder concentration.
+- Jupiter organic score label thresholds and how often a score changes in a token's first 2 hours; share of 20-120-minute-old launches that are Token-2022 and whether the ">40% permanent delegate" claim is accurate.
+- Whether Solana's v1 transaction format (flat priority fee since 2026-09-15, one article) changes fee guidance and web3.js compatibility.
+- Current Helius pricing page and the Sender dual-route minimum (0.0002 vs 0.001 SOL); QuickNode/Triton pricing; VPS pricing; Discord webhook and Telegram limits; Kraken/Coinbase key-permission toggles and rate limits; AWS/GCP KMS Ed25519 support and Turnkey/Privy pricing.
+- Hyperliquid's address rate limit (1 request per 1 USDC): how fast a small polling bot exhausts it and whether /info counts; referral discount percentage; whether the 10k USDC vault fee applies to all vaults in 2026; whether the API rejects US IPs.
+- Jesse live-trading pricing and vectorbt PRO pricing; release years of ccxt v4.5.84 and hummingbot v2.17.0.
+
+Evidence gaps from the sandbox:
+
+- Paper contents beyond abstracts (LATTICE, PulseReddit, FINSABER, Profit Mirage, StockBench) and nof1's final Season 1 table and Season 2 status need primary verification.
+- Primary reports of the chalk/debug payload and Shai-Hulud worm, and whether Solana packages were among the ~500 affected.
+- Exact current Hyperliquid liquidation parameters (backstop, ADL ranking, OI caps).
+
+Regulatory and tax:
+
+- Whether the CFTC completed onshoring of perpetuals beyond BTC/ETH after March 2026 and whether the CLARITY Act passed the Senate by Sept 2026.
+- Whether any wash-sale extension (Lummis bill, PARITY Act) was enacted after 11 Sep 2026 and whether it is retroactive.
+- Availability of Section 475(f) / trader status for spot crypto and the tax character of funding payments.
+- Legal exposure of publishing trade explanations if the agent later sells into followers' buys (MiCA Art. 91, US anti-fraud rules).
+- The user's jurisdiction: US residency removes CEX copy products and complicates Hyperliquid; Spain/EU adds MiCA and per-swap taxation.
+
+## Sources
+
+Deduplicated per stream, in order of first citation. Local paths refer to the Ballast reference clone. Entries marked "(cited, not fetched)" by a stream are kept as labelled. The offline study's data repositories are listed last.
+
+### systematic-price
+
+- <https://onlinelibrary.wiley.com/doi/abs/10.1111/jofi.13119>
+- <https://www.nber.org/papers/w25882>
+- <https://pubsonline.informs.org/doi/10.1287/mnsc.2024.05875>
+- <https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3985631>
+- <https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4675565>
+- <https://acfr.aut.ac.nz/__data/assets/pdf_file/0009/918729/Time_Series_and_Cross_Sectional_Momentum_in_the_Cryptocurrency_Market_with_IA.pdf>
+- <https://link.springer.com/article/10.1007/s11408-025-00474-9>
+- <https://onlinelibrary.wiley.com/doi/abs/10.1002/ijfe.70036>
+- <https://www.sciencedirect.com/science/article/abs/pii/S1544612325011377>
+- <https://www.cambridge.org/core/journals/journal-of-financial-and-quantitative-analysis/article/trend-factor-for-the-cross-section-of-cryptocurrency-returns/4C1509ACBA33D5DCAF0AC24379148178>
+- <https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4601972>
+- <https://github.com/zebadee2kk/DeFi-TraderStack-Agent/issues/137>
+- <https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5209907>
+- <https://concretumgroup.com/catching-crypto-trends-a-tactical-approach-for-bitcoin-and-altcoins/>
+- <https://github.com/IsaacDodds/crypto-momentum-backtest>
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md
+- /home/user/jonatangigex/familiars.family-opus5.5/config/agent.json
+- /home/user/jonatangigex/familiars.family-opus5.5/src/strategy.ts
+- <https://github.com/onixenix/fortunalabs>
+- <https://www.coinquant.ai/blog/the-most-popular-crypto-trading-strategy-of-2026-backtested>
+- <https://www.coinquant.ai/blog/donchian-channel-breakout-on-crypto-backtest-vs-keltner>
+- <https://www.coinquant.ai/strategies/btc-donchian-channel-30m-backtest>
+- <https://www.coinquant.ai/blog/mean-reversion-crypto-strategy-backtested-when-it-beats-trend-following>
+- <https://www.coinquant.ai/blog/building-a-mean-reversion-strategy-in-cryptocurrency-markets-evidence-from-78-backtests>
+- <https://github.com/Adeline117/Strategy-project>
+- <https://tradingstrategies.work/blog/funding-rate-signal-btc-backtest>
+- <https://setup4alpha.substack.com/p/i-tested-20-trend-based-regime-filters>
+- <https://setup4alpha.substack.com/p/bitcoin-indicators-ranked>
+- <https://panteracapital.com/blockchain-letter/navigating-crypto-in-2026/>
+- <https://www.withintelligence.com/insights/cta-hedge-fund-report/>
+- <https://www.bitget.com/news/detail/12560605122618>
+- <https://arxiv.org/pdf/2608.10375>
+- <https://pluang.com/en/news-feed/efek-rerata-biaya-dengan-bitcoin-perhitungan>
+- <https://www.kucoin.com/blog/dca-vs-lump-sum>
+- <https://www.indexbox.io/blog/bitcoin-and-ethereum-why-timing-the-market-is-a-losing-strategy/>
+- <https://quantpedia.com/strategies/intraday-seasonality-in-bitcoin>
+- <https://concretumgroup.com/seasonality-in-bitcoin-intraday-trend-trading/>
+- <https://acr-journal.com/article/the-weekend-effect-in-crypto-momentum-does-momentum-change-when-markets-never-sleep--1514/>
+- <https://binancemakertakerfee.org/>
+- <https://bitsgap.com/blog/hyperliquid-fees-vs-binance-and-bybit-whats-actually-cheaper>
+- <https://www.bybit.com/en/announcement-info/fee-rate/>
+- <https://hyperliquidguide.com/guides/fees>
+- <https://coinbureau.com/analysis/top-solana-dex-platforms>
+- <https://managernest.com/blog/solana-trading-fees-explained-2026>
+- <https://docs.chainstack.com/docs/solana-priority-fees-for-a-jupiter-in-python>
+- <https://perpfinder.com/best-perp-dex/solana>
+- <https://github.com/alimukri5-create/crypto-momentum>
+- <https://www.soliduslabs.com/reports/solana-rug-pulls-pump-dumps-crypto-compliance>
+- <https://www.coindesk.com/business/2025/05/07/98-of-tokens-on-pump-fun-have-been-rug-pulls-or-an-act-of-fraud-new-report-says>
+- <https://www.sciencedirect.com/science/article/pii/S2096720925000818>
+- <https://fundingarbhq.com/funding-arb-guide-2026-infrastructure-yield>
+- <https://arxiv.org/html/2602.11708v1>
+
+### carry-arb-mm
+
+- <https://hyperliquid.gitbook.io/hyperliquid-docs/trading/funding>
+- <https://www.dwellir.com/guides/hyperliquid-funding-rates>
+- <https://perp.wiki/learn/hyperliquid-funding-rates-guide>
+- <https://hyperliquidguide.com/guides/fees/fees-explained>
+- <https://www.datawallet.com/crypto/hyperliquid-fees-explained>
+- <https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/connector/derivative/hyperliquid_perpetual/hyperliquid_perpetual_constants.py>
+- <https://supa.is/article/hyperliquid-api-rate-limits-user-limits-2026>
+- <https://tradersunion.com/brokers/crypto/view/binance/futures-fees/>
+- <https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/connector/derivative/binance_perpetual/binance_perpetual_constants.py>
+- <https://arbitragescanner.io/blog/crypto-funding-rate-arbitrage-guide>
+- <https://www.buildix.trade/blog/crypto-funding-rate-arbitrage-delta-neutral-hyperliquid-binance>
+- <https://www.neuralarb.com/2026/04/24/hyperliquid-vs-cexs-perp-arbitrage-after-fees-funding-slippage/>
+- <https://coinmetrics.substack.com/p/state-of-the-network-issue-368>
+- <https://www.datawallet.com/crypto-funding-rates>
+- <https://raw.githubusercontent.com/hummingbot/hummingbot/master/scripts/v2_funding_rate_arb.py>
+- <https://github.com/aoki-h-jp/funding-rate-arbitrage>
+- <https://raw.githubusercontent.com/hummingbot/hummingbot/master/README.md>
+- <https://onekey.so/blog/ecosystem/hyperliquid-binance-funding-arbitrage-20260429/>
+- <https://blog.amberdata.io/how-3.21b-vanished-in-60-seconds-october-2025-crypto-crash-explained-through-7-charts>
+- <https://www.fticonsulting.com/insights/articles/crypto-crash-october-2025-leverage-met-liquidity>
+- <https://www.coingecko.com/learn/october-10-crypto-crash-explained>
+- <https://www.coindesk.com/markets/2026/01/08/october-s-crypto-crash-left-market-makers-stuffed-with-coins-slowing-trading-bitmex>
+- <https://www.coindesk.com/markets/2025/10/13/no-ethena-s-usde-didn-t-de-peg>
+- <https://www.ccn.com/education/crypto/ethena-usde-depeg-binance-crash-explained/>
+- <https://www.tradingview.com/news/cointelegraph:c4d13adee094b:0-explanations-of-usde-depeg-on-binance-focus-on-coordinated-attack-oracles/>
+- <https://pharos.watch/learn/case-studies/stream-elixir-contagion-2025/>
+- <https://blockeden.xyz/blog/2025/11/08/m-defi-contagion/>
+- <https://finance.yahoo.com/news/elixir-shuts-down-deusd-stablecoin-104937488.html>
+- <https://eco.com/support/en/articles/15254002-ethena-usde-and-susde-2026-delta-neutral-yield>
+- <https://stablecoininsider.org/ethena-usde-q1-2026-report/>
+- <https://eco.com/support/en/articles/14801186-kamino-lending-solana-s-money-market-explained>
+- <https://eco.com/support/en/articles/15253991-best-usdc-yield-platforms-2026-aave-morpho-sky-compared>
+- <https://aavescan.com/stablecoins>
+- <https://www.datawallet.com/crypto/hyperliquid-hlp-explained>
+- <https://www.vaasblock.com/news/hyperliquid-hlp-vault-economics-perp-dex-2026/>
+- <https://www.coindesk.com/markets/2025/03/26/hyperliquid-delists-jellyjelly-after-vault-squeezed-in-usd13m-tussle>
+- <https://hyperliquidguide.com/ecosystem/hyperliquid-vaults-guide>
+- <https://arxiv.org/abs/2606.15715>
+- <https://multicoin.capital/2026/02/17/adverse-selection-rules-everything-around-me/>
+- <https://academy.extropy.io/pages/articles/mev-crosschain-analysis-2025.html>
+- <https://rpcfast.com/blog/solana-arbitrage-bot-setup>
+- <https://yavorovych.medium.com/solana-arbitrage-bot-setup-why-most-fail-before-they-start-1c24d8d72593>
+- <https://blog.everstrike.io/7-arbitrage-strategies-are-still-accessible-to-retail-quants-in-2025/>
+- <https://hftadvisory.substack.com/p/cross-exchange-arbitrage-and-the>
+- <https://defillama.com/protocol/meteora-dlmm>
+- <https://genfinity.io/2026/06/08/meteora-lp-army-solana-liquidity-education/>
+- <https://coinbureau.com/review/orca-dex-review>
+- <https://github.com/GeekLad/meteora-profit-analysis>
+- <https://docs.neutral.trade/for-capital-allocators/market-neutral/jupiter-jlp-delta-neutral>
+- <https://medium.com/@jayepaul81/building-solneutral-a-delta-neutral-usdc-vault-on-solana-049eb1d8a2ce>
+- <https://blog.redstone.finance/2025/12/11/solana-lending-markets/>
+- <https://github.com/drift-labs/protocol-v2>
+- <https://arxiv.org/pdf/2506.11921>
+- <https://coinbureau.com/guides/how-to-backtest-your-crypto-trading-strategy>
+- <https://goodcrypto.app/case-study-180-apr-using-grid-bot-while-bitcoin-stayed-flat/>
+- <https://arxiv.org/abs/2109.10662>
+- <https://www.wne.uw.edu.pl/download_file/6095/0>
+- <https://arxiv.org/pdf/2605.01954>
+- <https://developers.jup.ag/docs/ultra/fees>
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md
+- /home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts
+- <https://github.com/hyperliquid-dex/node>
+- <https://github.com/stephenpeters/delta_neutral_strategies>
+- <https://kr.tradingview.com/script/OxAgtVr0-Cash-And-Carry-Arbitrage-BTC-Compare-Month-6-by-SeoNo1>
+
+### onchain-memecoin
+
+- <https://www.soliduslabs.com/reports/solana-rug-pulls-pump-dumps-crypto-compliance>
+- <https://www.coindesk.com/business/2025/05/07/98-of-tokens-on-pump-fun-have-been-rug-pulls-or-an-act-of-fraud-new-report-says>
+- <https://cryptopotato.com/98-of-tokens-on-pump-fun-are-rug-pulls-or-fraud-report/>
+- <https://arxiv.org/abs/2609.10246>
+- <https://solanacompass.com/news/pumpfun-launched-42000-tokens-in-one-day-fewer-than-2-will-ever-reach-a-dex>
+- <https://solanafloor.com/news/solana-launchpad-showdown-pump-fun-vs-lets-bonk-fun>
+- <https://github.com/unretain/solagents>
+- <https://cointelegraph.com/news/pump-fun-crypto-traders-majority-do-not-realize-profits-dune-data>
+- <https://www.coingecko.com/research/publications/pump-fun-traders-are-making-a-comeback>
+- <https://www.crowdfundinsider.com/2026/05/277755-solana-based-meme-coins-trading-platform-pump-fun-makes-recovery-research/>
+- <https://dune.com/web3frank/pumpfun-6-months-trader-analysis>
+- <https://pineanalytics.substack.com/p/exit-liquidity-machines>
+- <https://www.chaincatcher.com/en/article/2185070>
+- <https://arxiv.org/abs/2607.02795>
+- <https://zenodo.org/records/20978742>
+- <https://openliquid.io/tools/pumpfun-sniper-bot/>
+- <https://arxiv.org/abs/2608.20271>
+- <https://arxiv.org/html/2602.13480v1>
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md
+- /home/user/jonatangigex/familiars.family-opus5.5/src/onchain.ts
+- <https://dev.to/ohmygod/solanas-permanent-delegate-burn-scam-how-token-2022-extensions-power-2026s-largest-automated-rug-4579>
+- <https://dev.to/mrwizardlyloaf/token-2022-traps-that-drain-ai-trading-agents-and-how-to-screen-them-33bo>
+- <https://neodyme.io/en/blog/token-2022/>
+- <https://dev.to/mrwizardlyloaf/how-to-detect-a-solana-honeypot-token-before-your-bot-buys-2cdf>
+- <https://dev.jup.ag/docs/token-api/v2>
+- <https://dev.jup.ag/docs/ultra-api/get-shield>
+- <https://developers.jup.ag/blog/what-is-organic-score>
+- <https://cryptoslate.com/decentralized-exchanges/jupiter-exchange-review/>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/jupiter.ts
+- <https://www.soltokencreator.io/blog/pump-fun-fees-explained>
+- <https://cryptoslate.com/decentralized-exchanges/pump-fun-review/>
+- <https://solanatools.io/blog/solana-trading-bot-fees-compared>
+- <https://axiompedia.com/compare>
+- <https://github.com/onecandlecat/one-more-candle>
+- <https://github.com/nirholas/pump-fun-sdk/blob/main/docs/fee-sharing.md>
+- <https://github.com/jito-labs/jito-docs/blob/main/docs/source/lowlatencytxnsend.md>
+- <https://gist.github.com/NeOMakinG/49daadcd4855dc8986664ad0ba07b757>
+- <https://dl.acm.org/doi/10.1145/3730567.3764493>
+- <https://www.dlnews.com/articles/defi/solana-users-use-jito-to-stop-sandwich-attacks-and-mev/>
+- <https://solana.com/docs/defi/mev-protection>
+- <https://github.com/0xfnzero/sol-trade-sdk>
+- <https://github.com/0xfnzero/pumpfun-sdk>
+- <https://github.com/GMGNAI/gmgn-skills/blob/main/Readme.md>
+- <https://subglow.io/subglow-vs-helius>
+- <https://uwuu.ai/blog/dexscreener-api>
+- <https://fluxrpc.com/docs/rugcheck/getting-started>
+- <https://dune.com/queries/4387975/lineage>
+- <https://www.solanatracker.io/leaderboard/kolscan>
+- <https://gmgn.ai/blog/how-to-track-copy-solana-smart-money/>
+- <https://arxiv.org/pdf/2601.08641>
+- <https://moonhydra.com/blog/copy-trading-solana-guide/>
+- <https://coingape.com/trending/how-a-crypto-trader-transformed-1795-into-873k-in-48-hours/>
+- <https://github.com/verixiaapps/awesome-memecoin-trading>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/config/agent.json
+- <https://familiars.family/>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/backtest.ts
+- <https://www.kucoin.com/blog/en-solana-launchpad-letsbonk-fun-sees-600-revenue-surge-in-early-2026>
+- <https://bex.co/blog/2026/04/22/meme-launchpad-2-pump-fun-letsbonk-anti-sniper-bonding-curve-professionalization>
+- <https://bravenewcoin.com/insights/pump-fun-introduces-creator-fee-sharing-system-to-rebalance-platform-incentives>
+- <https://github.com/pump-fun/pump-public-docs>
+- <https://coinbureau.com/analysis/best-memecoin-launchpads>
+- <https://www.kucoin.com/news/articles/clanker-surging-activity-in-base-ecosystem-drives-weekly-protocol-fees-to-record-8m-high>
+- <https://www.gate.com/crypto-wiki/article/what-is-clanker-clanker-and-how-does-its-ai-powered-token-launch-platform-work-on-base-20260106>
+- <https://blog.bubblemaps.io/whats-the-difference-between-bundle-cluster-2/>
+- <https://dev.to/paulf280ui/how-to-detect-coordinated-solana-launches-your-bundle-checker-misses-2c5g>
+- <https://trojan.com/blog/how-to-trade-solana-meme-coins-in-2026-a-beginners-guide>
+- <https://www.dextools.io/tutorials/solana-memecoins-complete-guide-2026>
+- <https://github.com/KrazySnipeOof/AI-memes-strat>
+- <https://www.altrady.com/blog/crypto-trading-strategies/pump-fun-solana-memecoin-trading>
+- <https://docs.bitquery.io/docs/blockchain/Solana/Pumpfun/pump-fun-to-pump-swap/>
+- <https://github.com/git-disl/memetrans>
+
+### copy-onchain
+
+- <https://docs.nansen.ai/api/smart-money>
+- <https://docs.nansen.ai/getting-started/credits>
+- <https://docs.nansen.ai/guides/templates/complex-use-cases/use-case-4-copytrading-top-performing-wallets>
+- <https://www.kucoin.com/news/flash/nansen-launches-pay-per-use-model-on-base-and-solana-with-usdc-settlement>
+- <https://toolchase.com/tool/nansen/>
+- <https://gmgn.ai/blog/how-to-track-copy-solana-smart-money/>
+- <https://coincodecap.com/gmgn-review>
+- <https://docs.gmgn.ai/index/copy-trade-copy-smart-money-automatically-earn-sol>
+- <https://x.com/gmgnai/status/1963882916460769393>
+- <https://apify.com/parsebird/gmgn-copytrade-wallet-scraper>
+- <https://cielo.finance/>
+- <https://docs.cielo.finance/guides/copy-trading/finding-good-wallets>
+- <https://api-info.cielo.finance/>
+- <https://uwuu.ai/blog/cielo-finance-review>
+- <https://solanabox.tools/tools/cielo-finance>
+- <https://github.com/vybenetwork/solana-wallet-pnl-profit-and-loss-api>
+- <https://github.com/vybenetwork/solana-top-traders-wallets-and-tokens-api>
+- <https://docs.birdeye.so/reference/get-defi-v2-tokens-top_traders>
+- <https://docs.birdeye.so/reference/get-wallet-v2-pnl-multiple>
+- <https://docs.codex.io/recipes/wallets/discover-traders>
+- <https://www.codex.io/pricing>
+- <https://www.solanatracker.io/data-api>
+- <https://docs.solanatracker.io/data-api/pnl/get-wallet-pnl>
+- <https://moralis.com/crypto-pnl-api-how-to-track-wallet-profit-loss/>
+- <https://apis.io/plans/solscan/solscan-plans-pricing/>
+- <https://comparedge.com/tools/dune-analytics/pricing>
+- <https://dune.com/couldbebasic/wallet-analyzer-for-copy-traders>
+- <https://toolchase.com/tool/arkham/>
+- <https://www.walletmaster.tools/solana-pnl-api/>
+- <https://arxiv.org/abs/2608.04373>
+- <https://github.com/daojingzhai/public-trader-identity>
+- <https://arxiv.org/abs/2601.08641>
+- <https://dl.acm.org/doi/10.1145/3774904.3792635>
+- <https://www.emergentmind.com/topics/memecoin-copy-trading>
+- <https://github.com/BallesJr/polymarket-copy-trader>
+- <https://www.coingecko.com/research/publications/pump-fun-traders-are-making-a-comeback>
+- <https://beincrypto.com/pump-fun-traders-profit-comeback-meme-coin-season/>
+- <https://www.vantagemarkets.com/academy/is-copy-trading-profitable/>
+- <https://medium.com/@fintecmarketsfx/is-copy-trading-profitable-in-2025-what-real-traders-are-saying-1fb321b4951e>
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md
+- <https://medium.com/@nathan.baldwin_31153/copy-trading-on-solana-how-to-find-alpha-wallets-without-getting-faked-out-by-bots-0bc550f07290>
+- <https://moonhydra.com/blog/copy-trading-solana-guide/>
+- <https://www.helius.dev/docs/grpc>
+- <https://www.helius.dev/docs/billing/plans>
+- <https://www.helius.dev/blog/laserstream-websockets>
+- <https://www.helius.dev/solana-webhooks-websockets>
+- <https://shyft.to/>
+- <https://github.com/keidev-sol/Solana-Copy-Trading-Bot-Rust>
+- <https://github.com/ChainInsighter/Solana-Copy-trading-bot>
+- <https://rpcfast.com/blog/pillars-of-choosing-a-solana-rpc-provider-for-trading-bots>
+- <https://dysnix.com/blog/top-solana-sniper-bot>
+- <https://yavorovych.medium.com/how-to-build-a-solana-copy-trading-bot-2026-guide-559448259e96>
+- <https://developers.jup.ag/docs/ultra/get-started>
+- <https://support.jup.ag/hc/en-us/articles/18735045234588-Fees>
+- <https://developers.jup.ag/pricing>
+- <https://medium.com/bloxroute/a-new-era-of-mev-on-solana-ae5cff390b71>
+- <https://cryptorank.io/news/feed/4d1c4-jito-bans-15-additional-validators-after-data-emerges-of-widespread-sandwich-attacks>
+- <https://solana.com/docs/defi/mev-protection>
+- <https://docs.chainstack.com/docs/solana-mev-protection>
+- <https://subglow.io/use-cases/copy-trading>
+- <https://docs.bitquery.io/docs/usecases/copy-trading-bot/>
+- <https://www.mexc.com/news/74318>
+- <https://github.com/abstradeapi/Open-Fomo-API>
+- <https://fomoapi.io/>
+- <https://fomoapi.io/pricing>
+- <https://fomo.family/blog/learn/what-is-copy-trading>
+- <https://crowinvesting.com/crypto-trading/fomo-family-tutorial/>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/cli/learn.ts
+- <https://familiars.family/>
+- <https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy>
+- <https://eco.com/support/en/articles/15197987-hyperliquid-vault-strategies-2026-hlp-and-user-vaults-explained>
+- <https://arx.trade/blog/hyperliquid-vaults-explained/>
+- /home/user/jonatangigex/familiars.family-opus5.5/config/agent.json
+- <https://www.nansen.ai/post/how-to-track-smart-money-crypto-accumulation-ultimate-guide>
+- <https://docs.cielo.finance/wallet-tracking/insights>
+
+### copy-cex-perps
+
+- <https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/eth_defi/hyperliquid/api.py>
+- <https://github.com/Senpi-ai/senpi-skills/blob/main/quant-desk/scripts/hl_api.py>
+- <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/hyperliquid/README-hyperliquid-copy-trading.md>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/hyperliquid/info.py>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/hyperliquid/utils/types.py>
+- <https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/scripts/hyperliquid/README-hyperliquid-copy-trading.md>
+- <https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/rate-limits-and-user-limits>
+- <https://raw.githubusercontent.com/nktkas/hyperliquid/main/src/api/info/_methods/vaultDetails.ts>
+- <https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy>
+- <https://eco.com/support/en/articles/15197987-hyperliquid-vault-strategies-2026-hlp-and-user-vaults-explained>
+- <https://raw.githubusercontent.com/petercool/hl-vault-monitor/main/README.md>
+- <https://www.datawallet.com/crypto/hyperliquid-hlp-explained>
+- <https://www.coingecko.com/learn/hyperliquid-hlp-vault-analysis>
+- <https://www.dlnews.com/articles/defi/hyperliquid-trader-james-wynn-liquidated-nine-times/>
+- <https://www.coindesk.com/markets/2025/05/31/cryptos-most-watched-whale-gets-fully-liquidated-after-placing-billions-in-risky-bets>
+- <https://finance.yahoo.com/markets/crypto/articles/james-wynn-account-drops-900-101235555.html>
+- <https://hyperliquid.gitbook.io/hyperliquid-docs/trading/builder-codes>
+- <https://www.dwellir.com/blog/hyperliquid-builder-codes>
+- <https://hyperdash.com/learn/hyperliquid-builder-codes-explained-how-third-party-apps-earn-fees-on-chain>
+- <https://raw.githubusercontent.com/ccxt/ccxt/master/python/ccxt/okx.py>
+- <https://www.okx.com/en-us/help/lead-traders-trader-profit-sharing-rules>
+- <https://www.okx.com/en-us/campaigns/copytrading-apizone>
+- <https://raw.githubusercontent.com/ccxt/ccxt/master/python/ccxt/bitget.py>
+- <https://www.bitget.com/support/articles/12560603803039>
+- <https://www.bitget.com/support/articles/12560603848377>
+- <https://www.bybit.com/en/help-center/article/Copy-Trading-Profit-Sharing-Explained>
+- <https://aotrading.io/blogs/bybit-copy-trading-fees-2026>
+- <https://raw.githubusercontent.com/ccxt/ccxt/master/python/ccxt/bybit.py>
+- <https://www.binance.com/en/support/faq/lead-trader-benefits-in-binance-futures-copy-trading-ea9bacf82b9e4ddfae50ebc98565241b>
+- <https://raw.githubusercontent.com/ccxt/ccxt/master/python/ccxt/binance.py>
+- <https://coinbureau.com/review/bybit-copy-trading-review>
+- <https://coinbureau.com/review/binance-copy-trading-review>
+- <https://cryptorank.io/news/feed/13fb9-285m-solana-protocol-drift-largest-exploit-2026>
+- <https://www.chainalysis.com/blog/lessons-from-the-drift-hack/>
+- <https://raw.githubusercontent.com/drift-labs/drift-vaults/master/programs/drift_vaults/src/state/vault.rs>
+- <https://raw.githubusercontent.com/drift-labs/drift-vaults/master/ts/sdk/README.md>
+- <https://raw.githubusercontent.com/elliottech/lighter-python/main/README.md>
+- <https://www.datawallet.com/crypto/lighter-explained>
+- <https://www.asterdex.com/en/vaults>
+- <https://docs.jup.ag/user-docs/trade/perps>
+- <https://raw.githubusercontent.com/cyl19970726/poly-sdk/main/docs/api/02-leaderboard.md>
+- <https://raw.githubusercontent.com/cyl19970726/poly-sdk/main/docs/api/03-position-activity.md>
+- <https://raw.githubusercontent.com/NYTEMODEONLY/polyterm/main/docs/core/leaderboard.md>
+- <https://raw.githubusercontent.com/howwohmm/polymarket-paper/main/copytrade.py>
+- <https://raw.githubusercontent.com/Polymarket/py-clob-client/main/README.md>
+- <https://www.quicknode.com/builders-guide/best/top-10-polymarket-trading-bots>
+- <https://polybot.me/blog/polymarket-copy-trading-guide>
+- <https://arxiv.org/pdf/1406.7729>
+- <https://pubsonline.informs.org/doi/10.1287/mnsc.2019.3508>
+- <https://digikogu.taltech.ee/en/Download/9c402020-d23e-447e-bcba-e41823baa02d>
+- <https://copytraderscout.com/blog/is-copy-trading-profitable/>
+- <https://raw.githubusercontent.com/Senpi-ai/senpi-skills/main/quant-desk/references/methodology.md>
+- <https://raw.githubusercontent.com/eltonaguiar/findtorontoevents_antigravity.ca-archive-2026-05-23/main/memory/2026-03-19.md>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md
+- <https://cryptorank.io/news/feed/00e88-hypervaultfi-suspected-rug-pull-takes-3-6m>
+- <https://www.cryptopolitan.com/hypervaultfi-suspected-rug-pull-takes-3-6m/>
+
+### familiars-fomo
+
+- /home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/cli/register.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/test/safety.test.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md
+- /home/user/jonatangigex/familiars.family-opus5.5/src/launch-agent.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/learn.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/rebuild.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/risk.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/poster.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/agent.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/cli/owner-key.ts
+- <https://raw.githubusercontent.com/faisalkhattak7997-tech/solana-trade-bot/main/signals.json>
+- <https://x.com/familiarsfamily>
+- <https://github.com/search?q=familiars.family&type=repositories>
+- <https://github.com/JonatanGigex/familiars.family-Opus5.5>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/launch.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/backtest.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/jupiter.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/market.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/pumpfun.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/bootstrap.ts
+- <https://github.com/synsur/fomo-flow>
+- <https://www.datawallet.com/crypto/fomo-app-explained>
+- <https://fomotrading.app/perps/>
+- <https://raw.githubusercontent.com/Cataracks/fomo-sapiens/main/.claude/skills/fomo-sapiens/SKILL.md>
+- <https://raw.githubusercontent.com/chainstacklabs/fomo-solana-rh-listeners/main/README.md>
+- <https://raw.githubusercontent.com/jonthomp/fomo-robinhood-radar/main/README.md>
+- <https://raw.githubusercontent.com/phinolex/fomo-extension-bot-order/main/README.md>
+- <https://bitcoinfoundation.org/news/crypto-companies-news/fomo-investments/>
+- <https://defillama.com/protocol/fomo>
+- <https://raw.githubusercontent.com/Cataracks/fomo-sapiens/main/.claude/skills/fomo-sapiens/references/endpoints.md>
+- <https://raw.githubusercontent.com/cvxv666/fomo-robinhood-radar/main/docs/fomo-endpoints.md>
+- <https://raw.githubusercontent.com/omarlatreche/FOMO-Copy-Trader/main/session.md>
+- <https://github.com/VersoXBT/x-fomo-pnl>
+- <https://fomoapi.io/pricing>
+- <https://github.com/abstradeapi/Open-Fomo-API>
+- <https://raw.githubusercontent.com/abstradeapi/Fomo-CLI-Agent/main/README.md>
+- <https://fomolens.app/>
+- <https://raw.githubusercontent.com/DavidYashar/Smart-Alert-Robin/main/docs/fomo-kol-pipeline.md>
+- <https://raw.githubusercontent.com/313imverymellodet/fomo-copy-sim/main/README.md>
+- <https://raw.githubusercontent.com/itsnex1s/fomopulse-robinhood-chain-tape/main/README.md>
+- <https://www.solanatracker.io/leaderboard/fomo>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/strategy.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/config/agent.json
+- /home/user/jonatangigex/familiars.family-opus5.5/src/onchain.ts
+
+### llm-agents-evidence
+
+- <https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/30-Apr-2026/AI/README.md>
+- <https://arxiv.org/abs/2604.26235>
+- <https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/5-Jun-2025/NLP/README.md>
+- <https://arxiv.org/abs/2506.03861>
+- <https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/14-Jul-2025/AI/README.md>
+- <https://github.com/BitnomadLive/OffensiveReading>
+- <https://arxiv.org/abs/2507.08249>
+- <https://github.com/itripleg/llm-trading-bot/blob/main/blogpost.txt>
+- <https://github.com/weiuou/nof1-analysis>
+- <https://github.com/gameworkerkim/vibe-investing/blob/main/02.Investment%20Idea%20Column/DeepSeek_Alpha/readme.md>
+- <https://nof1.ai/>
+- <https://github.com/zhuxining/agent-quant/blob/main/docs/nof1-prompt.md>
+- <https://github.com/prajwalgajakesari/the-vault-ai/blob/main/editions/2026/05/15/stories/15-nof1-15m-ai-frontier-trading-models.md>
+- <https://github.com/prajwalgajakesari/the-vault-ai/blob/main/editions/2026/05/23/stories/13-nof1-15m-frontier-financial-models.md>
+- <https://github.com/elimarks5807-coder/foundry-strategy-engine/blob/main/Digests/FINSABER.md>
+- <https://github.com/sh-arka22/RL-Trader/blob/main/docs/research/02_llm_agents.md>
+- <https://arxiv.org/abs/2505.07078>
+- <https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/10-Oct-2025/topic/RAG_related_papers.md>
+- <https://github.com/memgrafter/research-digests>
+- <https://github.com/R1M1N/research_paper_explainer>
+- <https://arxiv.org/abs/2510.07920>
+- <https://arxiv.org/abs/2510.02209>
+- <https://github.com/TauricResearch/TradingAgents>
+- <https://github.com/TauricResearch/Trading-R1>
+- <https://github.com/sh-arka22/RL-Trader/blob/main/docs/research/_raw/llm_P1_systems.md>
+- <https://github.com/HuggingAGI/HuggingArxivLLM>
+- <https://github.com/DVampire/FinAgent>
+- <https://github.com/pipiku915/FinMem-LLM-StockTrading>
+- <https://github.com/CSQianDong/Awesome-arXiv-Daily-Reporter/blob/main/14-Oct-2025/NLP/README.md>
+- <https://arxiv.org/abs/2510.11695>
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md
+- /home/user/jonatangigex/familiars.family-opus5.5/config/agent.json
+- /home/user/jonatangigex/familiars.family-opus5.5/src/launch-agent.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts
+- <https://github.com/freqtrade/freqtrade>
+- <https://raw.githubusercontent.com/freqtrade/freqtrade/develop/docs/exchanges.md>
+- <https://raw.githubusercontent.com/freqtrade/freqtrade/develop/docs/freqai.md>
+- <https://raw.githubusercontent.com/freqtrade/freqtrade/develop/LICENSE>
+- <https://github.com/hummingbot/hummingbot>
+- <https://github.com/hummingbot/gateway>
+- <https://github.com/hummingbot/hummingbot/releases>
+- <https://github.com/nautechsystems/nautilus_trader>
+- <https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/docs/integrations/hyperliquid.md>
+- <https://github.com/nautechsystems/nautilus_trader/releases>
+- <https://github.com/jesse-ai/jesse>
+- <https://raw.githubusercontent.com/jesse-ai/jesse/master/README.md>
+- <https://github.com/polakowo/vectorbt>
+- <https://raw.githubusercontent.com/polakowo/vectorbt/master/LICENSE.md>
+- <https://github.com/kernc/backtesting.py>
+- <https://github.com/ccxt/ccxt>
+- <https://github.com/ccxt/ccxt/releases>
+- <https://github.com/hyperliquid-dex/hyperliquid-python-sdk>
+- <https://github.com/hyperliquid-dex/hyperliquid-python-sdk/releases>
+- <https://github.com/sendaifun/solana-agent-kit>
+- <https://github.com/sendaifun/skills>
+- <https://raw.githubusercontent.com/sendaifun/skills/main/skills/jupiter/SKILL.md>
+- <https://github.com/0xfnzero/solana-bot-dev-skills>
+- <https://github.com/0xfnzero/sol-trade-sdk>
+- <https://github.com/goat-sdk/goat>
+- <https://github.com/elizaOS/eliza>
+- <https://github.com/elizaos-plugins>
+- <https://github.com/openclaw-trade/openclaw-trading-assistant>
+- <https://github.com/yufenng/Open-Nof1-AlphaArena>
+- <https://github.com/yipingheijiang/nofxAI>
+- <https://github.com/AgileWoW/moltbook-agentic-web-directory>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/learn.ts
+
+### infra-execution
+
+- <https://raw.githubusercontent.com/jup-ag/docs/main/ultra/index.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/swap/migration/ultra-to-order.mdx>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/jupiter.ts
+- <https://raw.githubusercontent.com/jup-ag/docs/main/ultra/fees.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/swap/order-and-execute.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/swap/build/index.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/portal/plans.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/portal/rate-limits.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/portal/api-keys.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/portal/firewall.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/swap/advanced/gasless.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/ultra/gasless.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/swap/advanced/slippage.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/ultra/execute-order.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/ultra/get-shield.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/tokens/token-information.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/price/index.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/transaction/submit.mdx>
+- <https://raw.githubusercontent.com/jito-labs/jito-docs/main/docs/source/lowlatencytxnsend.md>
+- <https://github.com/jito-labs/jito-js-rpc>
+- <https://raw.githubusercontent.com/helius-labs/core-ai/main/helius-mcp/system-prompts/helius/full.md>
+- <https://raw.githubusercontent.com/helius-labs/helius-sdk/main/README.md>
+- <https://github.com/MetalLegBob/solana-vibes-kit/blob/main/grand-library/resources/domain-packs/solana/knowledge/rpc-provider-comparison.md>
+- <https://raw.githubusercontent.com/solana-foundation/solana-com/main/apps/docs/content/docs/en/core/fees/index.mdx>
+- <https://raw.githubusercontent.com/solana-foundation/solana-com/main/apps/docs/content/docs/en/core/constants-reference.mdx>
+- <https://raw.githubusercontent.com/jup-ag/docs/main/swap/advanced/compute-units.mdx>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/executor.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md
+- <https://raw.githubusercontent.com/solana-foundation/solana-com/main/apps/docs/content/docs/en/tokens/extensions/index.mdx>
+- <https://github.com/solana-program/token-2022/tree/main/program/src/extension>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/solana.ts
+- <https://raw.githubusercontent.com/solana-foundation/solana-com/main/apps/docs/content/docs/en/rpc/http/gettransaction.mdx>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/rebuild.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/core.ts
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/for-developers/api/nonces-and-api-wallets.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/for-developers/api/exchange-endpoint.md>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/README.md>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/examples/basic_agent.py>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/for-developers/api/rate-limits-and-user-limits.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/for-developers/api/websocket/timeouts-and-heartbeats.md>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/hyperliquid/api.py>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/pyproject.toml>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/trading/fees.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/trading/builder-codes.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/trading/order-types.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/trading/funding.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/for-developers/api/priority-fees.md>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/examples/basic_tpsl.py>
+- <https://raw.githubusercontent.com/ccxt/ccxt/master/ts/src/hyperliquid.ts>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/hypercore/vaults/for-vault-leaders-legacy.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/hypercore/vaults/for-vault-depositors-legacy.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/onboarding/testnet-faucet.md>
+- <https://raw.githubusercontent.com/thanhtoan0306/hyperliquid-docs-ssr/main/content/pages/hypercore/bridge.md>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/examples/basic_vault.py>
+- <https://raw.githubusercontent.com/ccxt/ccxt/master/wiki/Manual.md>
+- <https://raw.githubusercontent.com/ccxt/ccxt/master/ts/src/coinbase.ts>
+- <https://raw.githubusercontent.com/ccxt/ccxt/master/ts/src/kraken.ts>
+- <https://github.com/ccxt/ccxt>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/secrets.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/wallet.ts
+- <https://raw.githubusercontent.com/docker/docs/main/content/manuals/engine/containers/start-containers-automatically.md>
+- <https://raw.githubusercontent.com/systemd/systemd/main/man/systemd.service.xml>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/lock.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/src/state.ts
+- /home/user/jonatangigex/familiars.family-opus5.5/Dockerfile
+- <https://github.com/python-telegram-bot/python-telegram-bot/wiki/Avoiding-flood-limits>
+- <https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/hyperliquid/info.py>
+
+### risk-regulatory
+
+- <https://github.com/alexnelja/dhando-analyzer/blob/main/research/kelly-criterion-probability-research.md>
+- <https://github.com/leoncuhk/awesome-quant-ai/blob/main/think/Uncertainty-Driven%20Position%20Sizing.md>
+- /home/user/jonatangigex/familiars.family-opus5.5/README.md (lines 87-119)
+- <https://github.com/xxSeasonxx/quant_strategies/blob/main/docs/research/crypto/03_academic_literature.md>
+- <https://github.com/HCH725/alpha-strategy-research/blob/main/crypto-cross-sectional-volatility-managed-momentum-2026-08-31.md>
+- <https://doi.org/10.1111/jofi.12513>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/risk.ts
+- <https://github.com/CodeGateSoftware/keel/blob/main/docs/superpowers/reports/2026-07-23-drawdown-taper-and-merton-exploration.md>
+- <https://github.com/luke-cramer/ai-trading/blob/main/research/strat-crypto.md>
+- <https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2025-10-20-daily-crypto.md>
+- <https://github.com/aakashgautam-git/Mochatrade/blob/main/MOCHATRADE_PS3_RESEARCH.md>
+- <https://www.forbes.com/sites/boazsobrado/2025/10/21/locked-out-and-liquidated-traders-blame-binance-for-19-billion-crash/> (cited, not fetched)
+- <https://www.fticonsulting.com/insights/articles/crypto-crash-october-2025-leverage-met-liquidity> (cited, not fetched)
+- <https://github.com/Hyperliquid-Community/wiki-community/blob/main/introduction/roadmap/incident/2025-26-03.md>
+- <https://github.com/sohan-shingade/soledu/blob/main/docs/hyperliquid-mev-research.md>
+- <https://github.com/truenorth-lj/crypto-project-security-skill/blob/main/docs/examples/hyperliquid-perps.md>
+- <https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2025-11-13-daily-crypto.md>
+- <https://www.coindesk.com/markets/2025/03/26/hyperliquid-delists-jellyjelly-after-vault-squeezed-in-usd13m-tussle> (cited, not fetched)
+- <https://github.com/emberian/dregg/blob/main/docs/deos/DREGG-LAUNCHPAD-DESIGN.md>
+- <https://www.coindesk.com/business/2025/05/07/98-of-tokens-on-pump-fun-have-been-rug-pulls-or-an-act-of-fraud-new-report-says> (cited, not fetched)
+- <https://www.soliduslabs.com/reports/solana-rug-pulls-pump-dumps-crypto-compliance> (cited, not fetched)
+- <https://github.com/solana-foundation/solana-com/blob/main/apps/docs/content/docs/en/tokens/extensions/permanent-delegate.mdx>
+- <https://github.com/solana-foundation/solana-com/blob/main/apps/docs/content/docs/en/tokens/extensions/transfer-hook.mdx>
+- <https://github.com/solana-program/token-2022/blob/main/program/src/extension/mod.rs>
+- <https://github.com/jup-ag/docs/blob/main/ultra/get-shield.mdx>
+- <https://github.com/jup-ag/docs/blob/main/tokens/index.mdx>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/executor.ts
+- <https://github.com/solana-labs/solana-web3.js/security/advisories/GHSA-jcxm-7wvp-g6p5>
+- <https://registry.npmjs.org/@solana/web3.js>
+- <https://registry.npmjs.org/chalk>
+- <https://registry.npmjs.org/@ctrl/tinycolor>
+- <https://github.com/chalk/chalk/issues/656>
+- <https://github.com/debug-js/debug/issues/1005>
+- <https://github.com/MetalLegBob/solana-vibes-kit/blob/main/stronghold-of-security/research/wave3/w3-incident-deep-dives.md>
+- <https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/examples/basic_agent.py>
+- <https://github.com/Squads-Protocol/v4>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/familiars.ts
+- <https://arxiv.org/abs/2503.16248> (cited; abstract read via https://github.com/santosomar/ai_news_archive)
+- <https://github.com/OWASP/www-project-top-10-for-large-language-model-applications/blob/main/2_0_vulns/LLM01_PromptInjection.md>
+- <https://github.com/OWASP/www-project-top-10-for-large-language-model-applications/blob/main/2_0_vulns/LLM06_ExcessiveAgency.md>
+- <https://github.com/GenAI-Security-Project/GenAI-LLM-Top10>
+- <https://github.com/killertcell428/aigis/blob/main/aigis/filters/patterns.py>
+- /home/user/jonatangigex/familiars.family-opus5.5/src/solana.ts
+- <https://github.com/openaccountants/openaccountants/blob/main/agent-skills/us-crypto-tax/SKILL.md>
+- <https://github.com/knucklefat/Occupy-AI/blob/main/11-crypto/08-tax-and-regulation/tax-loss-harvesting-and-planning.md>
+- <https://www.irs.gov/pub/irs-drop/rp-24-28.pdf> (cited, not fetched)
+- <https://github.com/openaccountants/openaccountants/blob/main/packages/us-dc/us-crypto-reporting.md>
+- <https://www.federalregister.gov/documents/2024/07/09/2024-14004/> (cited, not fetched)
+- <https://www.federalregister.gov/documents/2025/07/11/2025-12967/> (cited, not fetched)
+- <https://github.com/knucklefat/Occupy-AI/blob/main/11-crypto/08-tax-and-regulation/crypto-tax-basics.md>
+- <https://www.cnbc.com/2026/07/28/congress-renews-push-to-end-crypto-wash-sale-tax-loophole.html> (cited, not fetched)
+- <https://www.lummis.senate.gov/press-releases/lummis-unveils-digital-asset-tax-legislation/> (cited, not fetched)
+- <https://github.com/openaccountants/openaccountants/blob/main/packages/uk/uk-crypto-tax.md>
+- <https://github.com/openaccountants/openaccountants/blob/main/skills/international/germany/de-crypto-tax.md>
+- <https://github.com/BittyTax/BittyTax/blob/master/README.md>
+- <https://www.gov.uk/hmrc-internal-manuals/cryptoassets-manual/crypto22200> (cited, not fetched)
+- <https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2026-01-06-daily-crypto.md>
+- <https://www.sec.gov/newsroom/press-releases/2024-125> (cited from recollection, not fetched)
+- <https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2026-03-04-daily-crypto.md>
+- <https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2026-03-26-daily-crypto.md>
+- <https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2026-02-04-daily-crypto.md>
+- <https://github.com/luke-cramer/ai-trading/blob/main/research/crypto-us-venues.md>
+- <https://www.jdsupra.com/legalnews/cftc-permits-listing-of-perpetual-3447034/> (cited, not fetched)
+- <https://www.pillsburylaw.com/en/news-and-insights/cftc-perpetual-futures-btc-eth-crypto-derivatives.html> (cited, not fetched)
+- <https://github.com/luke-cramer/ai-trading/blob/main/research/gap-2.md>
+- <https://app.hyperliquid.xyz/terms> (cited, not fetched)
+- <https://github.com/hyperliquid-dex>
+- <https://github.com/rya-sge/access-denied/blob/master/_posts/2026-09-17-mica-market-abuse-enforcement-supervision.md>
+- <https://github.com/ernie55ernie/ernie55ernie.github.io/blob/master/_posts/2026-01-24-daily-crypto.md>
+- <https://github.com/github/docs/blob/main/content/site-policy/github-terms/github-terms-for-additional-products-and-features.md>
+- <https://cloud.google.com/terms/aup>
+
+### offline study (data provenance, MANIFEST.md)
+
+- <https://github.com/finom/static-klines>
+- <https://github.com/yanniedog/binance-historical-OHLCV-data>
+- <https://github.com/Swissbit92/btc_price_tracker>
+- <https://github.com/jssyxd/nautilus-crypto-datacatalog>
+- <https://github.com/supervik/historical-funding-rates-fetcher>
+- <https://github.com/ZuShen168/funding_rate_data>
+- <https://github.com/Caiooooo/anay_hyper_fund>
+- <https://github.com/pattybepatient/crypto-funding-arb>
+- <https://github.com/sunsiyuan/trade-signal-bot>
+- <https://github.com/Color2333/a-r>
+- <https://github.com/Smurfetc/solana-memecoin-calls-dataset>
+- <https://github.com/nikolan17/pumpfun-call-analyzer>
