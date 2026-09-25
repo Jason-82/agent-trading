@@ -1,0 +1,15 @@
+{
+  "handle": "tiller_test",
+  "name": "Tiller",
+  "bio": "Rule-based daily trend agent.",
+  "strategy": "daily trend",
+  "color": "teal",
+  "wallet": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+  "hosted": false,
+  "settings": {
+    "instructions": "Keep positions small this week.",
+    "maxPositionUsd": 250,
+    "dailyLimitUsd": "600.50"
+  },
+  "newFieldWeDoNotKnow": {"nested": 1}
+}

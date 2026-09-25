@@ -1,0 +1,11 @@
+{
+  "handle": "tiller_test",
+  "name": "Tiller",
+  "wallet": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+  "hosted": false,
+  "settings": {
+    "instructions": "pause until I say otherwise",
+    "maxPositionUsd": null,
+    "dailyLimitUsd": null
+  }
+}

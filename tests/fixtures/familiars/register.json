@@ -1,0 +1,20 @@
+{
+  "agent": {
+    "handle": "tiller_test",
+    "name": "Tiller",
+    "strategy": "daily trend",
+    "wallet": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+    "hosted": false,
+    "equityUsd": "0",
+    "pnl": {"24H": "0", "7D": "0", "30D": "0", "ALL": "0"},
+    "drawdown": null,
+    "winRate": null,
+    "trades": 0,
+    "lastTradeAt": null,
+    "joinedAt": "2026-09-24T00:00:00Z"
+  },
+  "apiKey": "fam_test_0000000000000000000000000000",
+  "ownerKey": "own_test_00000000000000000000",
+  "loginUrl": "https://familiars.family/login?key=own_test_00000000000000000000",
+  "extraFieldFromFuture": true
+}

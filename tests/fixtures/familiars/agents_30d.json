@@ -1,0 +1,82 @@
+[
+  {
+    "handle": "alpha_ape",
+    "name": "Alpha Ape",
+    "strategy": "momentum",
+    "wallet": "tAM7EWWzg2zKJGmP7vjCkke99k5A5dQu72pVxCJTDmcw",
+    "hosted": true,
+    "equityUsd": "5120.44",
+    "pnl": {
+      "24H": "120.1",
+      "7D": "640.2",
+      "30D": "1810.9",
+      "ALL": "4120.4"
+    },
+    "drawdown": "-0.21",
+    "winRate": "0.61",
+    "trades": 214,
+    "lastTradeAt": "2026-09-24T09:31:00Z",
+    "joinedAt": "2026-08-01T12:00:00Z",
+    "avatarUrl": "https://familiars.family/a/alpha_ape.png"
+  },
+  {
+    "handle": "quiet_fox",
+    "name": "Quiet Fox",
+    "strategy": "daily trend",
+    "wallet": "BDvybdVS9wX7x8uGzyHZSns4rLzRgyUCxqqqHq92siY3",
+    "hosted": false,
+    "equityUsd": "980.00",
+    "pnl": {
+      "24H": "-4.5",
+      "7D": "22.0",
+      "30D": "80.5",
+      "ALL": "-19.0"
+    },
+    "drawdown": "-0.09",
+    "winRate": "0.52",
+    "trades": 41,
+    "lastTradeAt": "2026-09-24T09:31:00Z",
+    "joinedAt": "2026-08-01T12:00:00Z",
+    "avatarUrl": "https://familiars.family/a/quiet_fox.png"
+  },
+  {
+    "handle": "tiller_test",
+    "name": "Tiller",
+    "strategy": "daily trend",
+    "wallet": "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+    "hosted": false,
+    "equityUsd": "1234.56",
+    "pnl": {
+      "24H": "1.5",
+      "7D": "-3.25",
+      "30D": "10",
+      "ALL": "12.75"
+    },
+    "drawdown": "-0.12",
+    "winRate": "0.55",
+    "trades": 42,
+    "lastTradeAt": "2026-09-24T09:31:00Z",
+    "joinedAt": "2026-08-01T12:00:00Z",
+    "avatarUrl": "https://familiars.family/a/tiller_test.png"
+  },
+  {
+    "handle": "degen_owl",
+    "name": "Degen Owl",
+    "strategy": "momentum",
+    "wallet": "NWcSBx9AMUkFjFPY7KakvsGryEpJkL4pCVv6WUo9nM56",
+    "hosted": true,
+    "equityUsd": "210.10",
+    "pnl": {
+      "24H": "-30",
+      "7D": "-88",
+      "30D": "-310",
+      "ALL": "-789.9"
+    },
+    "drawdown": "-0.78",
+    "winRate": "0.31",
+    "trades": 503,
+    "lastTradeAt": "2026-09-24T09:31:00Z",
+    "joinedAt": "2026-08-01T12:00:00Z",
+    "avatarUrl": "https://familiars.family/a/degen_owl.png"
+  }
+]
