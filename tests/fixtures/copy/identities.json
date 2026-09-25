@@ -1,0 +1,18 @@
+{
+  "synthetic": true,
+  "leader_wallet": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+  "leader_usdc_ata": "FMUEmtxhU46GzhKF4FW9MLJdQWiLgjiXP9TYRWSrqTpV",
+  "leader_wsol_ata": "6TcyBfPdBt1kjsvDZLzmBFnuMaLWiTaAt4RjUr9VA5YD",
+  "leader_tokenx_ata": "4MfyR4G3NWfVRDWo6iNAHDBZqWMgwZX6FNtMqEW3a9JT",
+  "leader_tokeny_ata": "6c5fX1cKYGRNNbozjDdUr2s5vfUuS1XTistmZeG2kZY6",
+  "signatures": {
+    "leader_buy_token": "4NfsasVNcBVZ2mzWA4N8GmZJEmHpewREXEmRaFCagZrTe459dVu1uhDYTPQwnYNVPPKCJBiQU3tHQ3sebGfRGe2E",
+    "leader_sell_token": "2dX9BTqmx5rU3WTPdwRVTXS2s1THckM6jQ8bGwomhDfpgtnW23Vzh5RpJdfCW6rSDFUXMg7xjsRX8z8kaHUSjyf9",
+    "leader_airdrop": "3V1nL5NZGV1ABkcyBZgyByhAKr77uKUJkj9UpEjEkz2rAYtv1SmnybGAWStyNBCgTnefvR5pWzmJcp2SUYvqu71V",
+    "leader_buy_sol_quoted": "4sYkPxWd36kaMedQgrTauiKADtG9d9R5egZsdWFKj7S2XJFc4e36idDoy3dWhZKRHFPZqVEJspphDzZyiVXqyHmk",
+    "leader_token_for_token": "3EGNBn65HfQoc1NF4tRLA24HB5JVr8y7mECuL2UWdkL2XEv6VShQUpfAH85kPdkxoJrLCtjN8yAAMRk3zjAz1Ypc",
+    "leader_failed": "3BQhCaEsfkkgztzRtLk5aoiSjQJprJTdik5MsvnzrJ5UKZ4WMnEFZtyVDKxyJUehxCuQG3vvqdtXy5cRQxAUTtFw",
+    "leader_pending": "G2RtWnQ76UCNWWT6MJ1WDEPS9daxxQnpKLBTw81HCdSCdThZifkLpGs4HN23v89oiAuoYXKH3W7WhxSaip7KRj4",
+    "leader_swap_ignored": "3oHSqGUMJM6UBUBZLV5RKDkjzQxYiF4KPRr8MJs7jVQ1Fp7ZsBuXyLfBP78VofUpx9muP791UqfShxXn1NxL7DgU"
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "agent": {
+    "handle": "alpha_ape",
+    "name": "Alpha Ape",
+    "strategy": "momentum",
+    "wallet": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+    "hosted": true,
+    "equityUsd": "5120.44",
+    "pnl": {
+      "24H": "120.1",
+      "7D": "640.2",
+      "30D": "1810.9",
+      "ALL": "4120.4"
+    },
+    "drawdown": "-0.21",
+    "winRate": "0.61",
+    "trades": 214,
+    "lastTradeAt": "2026-09-24T09:31:00Z",
+    "joinedAt": "2026-08-01T12:00:00Z"
+  },
+  "cashUsd": "680.00",
+  "solBalance": "3.0",
+  "positions": [
+    {
+      "token": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+      "amount": "600",
+      "valueUsd": "90.00",
+      "unrealizedUsd": "18.00"
+    }
+  ],
+  "trades": [
+    {
+      "signature": "G2RtWnQ76UCNWWT6MJ1WDEPS9daxxQnpKLBTw81HCdSCdThZifkLpGs4HN23v89oiAuoYXKH3W7WhxSaip7KRj4",
+      "kind": "buy",
+      "time": "2026-09-24T00:04:00Z",
+      "amount": "500",
+      "usdValue": "75.00",
+      "token": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+      "quote": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    },
+    {
+      "signature": "2dX9BTqmx5rU3WTPdwRVTXS2s1THckM6jQ8bGwomhDfpgtnW23Vzh5RpJdfCW6rSDFUXMg7xjsRX8z8kaHUSjyf9",
+      "kind": "sell",
+      "time": "2026-09-23T22:00:00Z",
+      "amount": "400",
+      "usdValue": "60.00",
+      "token": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+      "quote": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    },
+    {
+      "signature": "4NfsasVNcBVZ2mzWA4N8GmZJEmHpewREXEmRaFCagZrTe459dVu1uhDYTPQwnYNVPPKCJBiQU3tHQ3sebGfRGe2E",
+      "kind": "buy",
+      "time": "2026-09-23T20:00:00Z",
+      "amount": "1000",
+      "usdValue": "120.00",
+      "token": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+      "quote": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    },
+    {
+      "signature": "3oHSqGUMJM6UBUBZLV5RKDkjzQxYiF4KPRr8MJs7jVQ1Fp7ZsBuXyLfBP78VofUpx9muP791UqfShxXn1NxL7DgU",
+      "kind": "swap",
+      "time": "2026-09-23T19:00:00Z",
+      "amount": "10",
+      "usdValue": "5.00",
+      "token": "5Z6Ay5NEcbg3xhopc522sBCRXQujkTiuDRnHGfQdcnSf",
+      "quote": null
+    }
+  ],
+  "transfers": [
+    {
+      "signature": "4hR5252ejjxKum15XGrhnbLn7dZLXricfDRV9shMXrByokynd65CvsL4ARJnYjLcc5F9T96DDhpYS3sn2mKnZbZm",
+      "kind": "deposit",
+      "time": "2026-08-01T12:05:00Z",
+      "token": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "amount": "1000",
+      "usdValue": "1000"
+    }
+  ],
+  "posts": [],
+  "history": {
+    "source": "platform",
+    "asOf": "2026-09-24T00:00:00Z",
+    "snapshots": [
+      {
+        "timestamp": 1789516800000,
+        "equityUsd": "1000",
+        "netDepositsUsd": "1000",
+        "pnlUsd": "0"
+      },
+      {
+        "timestamp": 1789603200000,
+        "equityUsd": "1100",
+        "netDepositsUsd": "1000",
+        "pnlUsd": "100"
+      },
+      {
+        "timestamp": 1789689600000,
+        "equityUsd": "1050",
+        "netDepositsUsd": "1000",
+        "pnlUsd": "50"
+      },
+      {
+        "timestamp": 1790121600000,
+        "equityUsd": "5000",
+        "netDepositsUsd": "1000",
+        "pnlUsd": "4000"
+      },
+      {
+        "timestamp": 1790208000000,
+        "equityUsd": "5120.44",
+        "netDepositsUsd": "1000",
+        "pnlUsd": "4120.44"
+      }
+    ]
+  }
+}

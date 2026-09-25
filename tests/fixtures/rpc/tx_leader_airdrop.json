@@ -1,0 +1,79 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "blockTime": 1790200100,
+    "slot": 312400000,
+    "version": 0,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+            "signer": true,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "6c5fX1cKYGRNNbozjDdUr2s5vfUuS1XTistmZeG2kZY6",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          }
+        ],
+        "instructions": [],
+        "recentBlockhash": "CZ8YUVdk7znjrUmnb5n7kgySk9yRAsQDYmyCxzfSky9t",
+        "addressTableLookups": []
+      },
+      "signatures": [
+        "3V1nL5NZGV1ABkcyBZgyByhAKr77uKUJkj9UpEjEkz2rAYtv1SmnybGAWStyNBCgTnefvR5pWzmJcp2SUYvqu71V"
+      ]
+    },
+    "meta": {
+      "err": null,
+      "status": {
+        "Ok": null
+      },
+      "fee": 5000,
+      "preBalances": [
+        3000000000,
+        0,
+        1
+      ],
+      "postBalances": [
+        2997955720,
+        2039280,
+        1
+      ],
+      "preTokenBalances": [],
+      "postTokenBalances": [
+        {
+          "accountIndex": 1,
+          "mint": "5Z6Ay5NEcbg3xhopc522sBCRXQujkTiuDRnHGfQdcnSf",
+          "owner": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "5000000000",
+            "decimals": 9,
+            "uiAmount": 5.0,
+            "uiAmountString": "5.0"
+          }
+        }
+      ],
+      "innerInstructions": [],
+      "logMessages": [],
+      "rewards": [],
+      "computeUnitsConsumed": 90000,
+      "loadedAddresses": {
+        "readonly": [],
+        "writable": []
+      }
+    }
+  }
+}

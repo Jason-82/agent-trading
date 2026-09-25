@@ -1,0 +1,132 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "blockTime": 1790207200,
+    "slot": 312400000,
+    "version": 0,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+            "signer": true,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "FMUEmtxhU46GzhKF4FW9MLJdQWiLgjiXP9TYRWSrqTpV",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "4MfyR4G3NWfVRDWo6iNAHDBZqWMgwZX6FNtMqEW3a9JT",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          }
+        ],
+        "instructions": [],
+        "recentBlockhash": "CZ8YUVdk7znjrUmnb5n7kgySk9yRAsQDYmyCxzfSky9t",
+        "addressTableLookups": []
+      },
+      "signatures": [
+        "2dX9BTqmx5rU3WTPdwRVTXS2s1THckM6jQ8bGwomhDfpgtnW23Vzh5RpJdfCW6rSDFUXMg7xjsRX8z8kaHUSjyf9"
+      ]
+    },
+    "meta": {
+      "err": null,
+      "status": {
+        "Ok": null
+      },
+      "fee": 5000,
+      "preBalances": [
+        3000000000,
+        2039280,
+        2039280,
+        1,
+        1
+      ],
+      "postBalances": [
+        2999995000,
+        2039280,
+        2039280,
+        1,
+        1
+      ],
+      "preTokenBalances": [
+        {
+          "accountIndex": 1,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "owner": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "680000000",
+            "decimals": 6,
+            "uiAmount": 680.0,
+            "uiAmountString": "680.0"
+          }
+        },
+        {
+          "accountIndex": 2,
+          "mint": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+          "owner": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "1000000000",
+            "decimals": 6,
+            "uiAmount": 1000.0,
+            "uiAmountString": "1000.0"
+          }
+        }
+      ],
+      "postTokenBalances": [
+        {
+          "accountIndex": 1,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "owner": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "740000000",
+            "decimals": 6,
+            "uiAmount": 740.0,
+            "uiAmountString": "740.0"
+          }
+        },
+        {
+          "accountIndex": 2,
+          "mint": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+          "owner": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "600000000",
+            "decimals": 6,
+            "uiAmount": 600.0,
+            "uiAmountString": "600.0"
+          }
+        }
+      ],
+      "innerInstructions": [],
+      "logMessages": [],
+      "rewards": [],
+      "computeUnitsConsumed": 90000,
+      "loadedAddresses": {
+        "readonly": [],
+        "writable": []
+      }
+    }
+  }
+}
