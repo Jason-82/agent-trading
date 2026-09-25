@@ -1,0 +1,50 @@
+[
+  {
+    "id": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+    "name": "Tkx",
+    "symbol": "TKX",
+    "icon": "https://example.invalid/icon.png",
+    "decimals": 6,
+    "dev": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+    "circSupply": 1000000000.0,
+    "totalSupply": 1000000000.0,
+    "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    "launchpad": null,
+    "firstPool": {
+      "id": "mBKqcnGotbsSb5vNrdyhzZ5EhqZdids9QYiTRckvi7v",
+      "createdAt": "2025-03-01T12:00:00Z"
+    },
+    "holderCount": 15234,
+    "audit": {
+      "mintAuthorityDisabled": true,
+      "freezeAuthorityDisabled": true,
+      "topHoldersPercentage": 18.4,
+      "devBalancePercentage": 1.2,
+      "devMints": 1,
+      "isSus": false
+    },
+    "organicScore": 82.5,
+    "organicScoreLabel": "high",
+    "isVerified": true,
+    "tags": [
+      "verified"
+    ],
+    "fdv": 42100000.0,
+    "mcap": 42100000.0,
+    "usdPrice": 0.0421,
+    "liquidity": 1250000.0,
+    "stats24h": {
+      "priceChange": -4.2,
+      "volumeChange": 3.1,
+      "buyVolume": 1200000.0,
+      "sellVolume": 1150000.0,
+      "numBuys": 5300,
+      "numSells": 4900,
+      "numTraders": 2100,
+      "numOrganicBuyers": 1900
+    },
+    "ctLikes": 120,
+    "smartCtLikes": 12,
+    "updatedAt": "2026-09-24T00:00:00Z"
+  }
+]

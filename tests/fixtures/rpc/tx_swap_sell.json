@@ -1,0 +1,123 @@
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "blockTime": 1790208300,
+    "slot": 312345002,
+    "version": 0,
+    "transaction": {
+      "message": {
+        "accountKeys": [
+          {
+            "pubkey": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+            "signer": true,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "hkcktF2Akp3vj8pbBVJuxJfk5m41i4t4TSVLx2VoNHT",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "6G1uk4kms3xPSeX1RwzMaYumnqWBs9xxCEUjZk5MxPvF",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "mBKqcnGotbsSb5vNrdyhzZ5EhqZdids9QYiTRckvi7v",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          },
+          {
+            "pubkey": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+            "signer": false,
+            "writable": true,
+            "source": "transaction"
+          }
+        ],
+        "instructions": [],
+        "recentBlockhash": "CZ8YUVdk7znjrUmnb5n7kgySk9yRAsQDYmyCxzfSky9t",
+        "addressTableLookups": []
+      },
+      "signatures": [
+        "gjyj7uu8eEwgpVJVyLSyw7fHzeZNzto93MuvXieuUiap7XjZDzCFymEwm5YrroV7R8UwU5cU7g3PeHrgu9jjQPT"
+      ]
+    },
+    "meta": {
+      "err": null,
+      "status": {
+        "Ok": null
+      },
+      "fee": 5000,
+      "preBalances": [
+        2000000000,
+        2039280,
+        0,
+        50000000000,
+        1,
+        1
+      ],
+      "postBalances": [
+        1499995000,
+        2039280,
+        0,
+        50500000000,
+        1,
+        1
+      ],
+      "preTokenBalances": [
+        {
+          "accountIndex": 1,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "owner": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "500000000",
+            "decimals": 6,
+            "uiAmount": 500.0,
+            "uiAmountString": "500.0"
+          }
+        }
+      ],
+      "postTokenBalances": [
+        {
+          "accountIndex": 1,
+          "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "owner": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+          "programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "uiTokenAmount": {
+            "amount": "574900000",
+            "decimals": 6,
+            "uiAmount": 574.9,
+            "uiAmountString": "574.9"
+          }
+        }
+      ],
+      "innerInstructions": [],
+      "logMessages": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 invoke [1]",
+        "Program log: Instruction: Route",
+        "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 consumed 91234 of 400000 compute units",
+        "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 success"
+      ],
+      "rewards": [],
+      "computeUnitsConsumed": 93000,
+      "loadedAddresses": {
+        "readonly": [],
+        "writable": []
+      }
+    }
+  },
+  "id": 1
+}

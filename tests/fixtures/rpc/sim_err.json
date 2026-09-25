@@ -1,0 +1,47 @@
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "2.1.0",
+      "slot": 312345001
+    },
+    "value": {
+      "err": {
+        "InstructionError": [
+          2,
+          {
+            "Custom": 6001
+          }
+        ]
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 invoke [1]",
+        "Program log: Instruction: Route",
+        "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 consumed 91234 of 400000 compute units",
+        "Program JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4 success"
+      ],
+      "accounts": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "unitsConsumed": 93000,
+      "returnData": null,
+      "innerInstructions": null,
+      "replacementBlockhash": null
+    }
+  },
+  "id": 1,
+  "_meta": {
+    "synthetic": true,
+    "addresses": [
+      "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+      "hkcktF2Akp3vj8pbBVJuxJfk5m41i4t4TSVLx2VoNHT",
+      "DwsPiR2VF1BbhqbNbcTpFPnSZZbYjxJdUgffQFSqYm4T",
+      "6G1uk4kms3xPSeX1RwzMaYumnqWBs9xxCEUjZk5MxPvF"
+    ]
+  }
+}

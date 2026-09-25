@@ -1,0 +1,7 @@
+{
+  "status": "Failed",
+  "signature": "2WKxQevKVD1D3VAkRAzrVcqPK518HsEJ8TYiMWRKKHL6C9jGLic1crVCRycqdqFmKxaRPBwF5NuyrzsRjJUYZmHb",
+  "slot": "312345690",
+  "code": 6001,
+  "error": "Transaction failed: custom program error: 0x1771 (SlippageToleranceExceeded)"
+}

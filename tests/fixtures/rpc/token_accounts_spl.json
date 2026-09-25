@@ -1,0 +1,70 @@
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "2.1.0",
+      "slot": 312345000
+    },
+    "value": [
+      {
+        "pubkey": "hkcktF2Akp3vj8pbBVJuxJfk5m41i4t4TSVLx2VoNHT",
+        "account": {
+          "lamports": 2039280,
+          "data": {
+            "program": "spl-token",
+            "parsed": {
+              "info": {
+                "isNative": false,
+                "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                "owner": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+                "state": "initialized",
+                "tokenAmount": {
+                  "amount": "500000000",
+                  "decimals": 6,
+                  "uiAmount": 500.0,
+                  "uiAmountString": "500.0"
+                }
+              },
+              "type": "account"
+            },
+            "space": 165
+          },
+          "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "executable": false,
+          "rentEpoch": 18446744073709551615,
+          "space": 165
+        }
+      },
+      {
+        "pubkey": "DwsPiR2VF1BbhqbNbcTpFPnSZZbYjxJdUgffQFSqYm4T",
+        "account": {
+          "lamports": 2039280,
+          "data": {
+            "program": "spl-token",
+            "parsed": {
+              "info": {
+                "isNative": false,
+                "mint": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+                "owner": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+                "state": "initialized",
+                "tokenAmount": {
+                  "amount": "12345678",
+                  "decimals": 6,
+                  "uiAmount": 12.345678,
+                  "uiAmountString": "12.345678"
+                }
+              },
+              "type": "account"
+            },
+            "space": 165
+          },
+          "owner": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "executable": false,
+          "rentEpoch": 18446744073709551615,
+          "space": 165
+        }
+      }
+    ]
+  },
+  "id": 1
+}

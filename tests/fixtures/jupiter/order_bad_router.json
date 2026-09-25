@@ -1,0 +1,38 @@
+{
+  "mode": "manual",
+  "swapType": "aggregator",
+  "router": "unknownrouter",
+  "requestId": "11111111-2222-4333-8444-555555555555",
+  "inAmount": "100000000",
+  "outAmount": "665800000",
+  "otherAmountThreshold": "662471000",
+  "swapMode": "ExactIn",
+  "slippageBps": 50,
+  "priceImpactPct": "0.0012",
+  "routePlan": [
+    {
+      "swapInfo": {
+        "ammKey": "mBKqcnGotbsSb5vNrdyhzZ5EhqZdids9QYiTRckvi7v",
+        "label": "SyntheticAMM",
+        "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "outputMint": "So11111111111111111111111111111111111111112",
+        "inAmount": "100000000",
+        "outAmount": "665800000",
+        "feeAmount": "0",
+        "feeMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+      },
+      "percent": 100,
+      "bps": 10000
+    }
+  ],
+  "feeBps": 2,
+  "transaction": "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAYKA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbgKcIy4bpKMUMC6SeloQfOVDxcXdwdEyORVL202tbEDfgtROtm0kkAVygkC7QeQRNOsXb7CMG8GlIwQ2o62458tTiMsy0tGLlQsK6x2L6OGzx3i2mzp+hSDsrlKDCvHKEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMGRm/lIRcy/+ytunLDm+e8jOW7xfcSayxDmzpAAAAABHnVW/IxwG7udMVuzmgVB/2xst6j9I5RArHNola8E48Gm4hX/quBhPtof2NGGMA12sQ53BrrO1WYoPAAAAAAAQbd9uHXZaGT2cvhRs7reawctIXtX1s3kTqM9YV+/wCpjJclj04kifG7PRApFI4NgwtaE5na/xCEBI572Nvp+Fmrq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urqwQFAAUCgBoGAAkGAAMABwQIAQEGBQgAAQMCGOUXy5d6460qAOH1BQAAAABATa8nAAAAAAgDAwAAAQk=",
+  "gasless": false,
+  "prioritizationFeeLamports": 100000,
+  "inputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "outputMint": "So11111111111111111111111111111111111111112",
+  "taker": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+  "inUsdValue": 100.0,
+  "outUsdValue": 99.87,
+  "totalTime": 812
+}

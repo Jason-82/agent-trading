@@ -1,0 +1,69 @@
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "2.1.0",
+      "slot": 312345000
+    },
+    "value": {
+      "lamports": 1461600,
+      "data": {
+        "program": "spl-token-2022",
+        "parsed": {
+          "info": {
+            "decimals": 6,
+            "freezeAuthority": null,
+            "isInitialized": true,
+            "mintAuthority": null,
+            "supply": "1000000000000000",
+            "extensions": [
+              {
+                "extension": "metadataPointer",
+                "state": {
+                  "authority": "7v54NWdBtkjuAFJrLGsS2SXnuk8nKam81mZJeeYxVFi9",
+                  "metadataAddress": "5Z6Ay5NEcbg3xhopc522sBCRXQujkTiuDRnHGfQdcnSf"
+                }
+              },
+              {
+                "extension": "tokenMetadata",
+                "state": {
+                  "name": "Token Y",
+                  "symbol": "TKY",
+                  "uri": "",
+                  "mint": "5Z6Ay5NEcbg3xhopc522sBCRXQujkTiuDRnHGfQdcnSf",
+                  "updateAuthority": "7v54NWdBtkjuAFJrLGsS2SXnuk8nKam81mZJeeYxVFi9",
+                  "additionalMetadata": []
+                }
+              },
+              {
+                "extension": "transferFeeConfig",
+                "state": {
+                  "transferFeeConfigAuthority": "7v54NWdBtkjuAFJrLGsS2SXnuk8nKam81mZJeeYxVFi9",
+                  "withdrawWithheldAuthority": "7v54NWdBtkjuAFJrLGsS2SXnuk8nKam81mZJeeYxVFi9",
+                  "withheldAmount": 0,
+                  "olderTransferFee": {
+                    "epoch": 700,
+                    "maximumFee": 1000000,
+                    "transferFeeBasisPoints": 100
+                  },
+                  "newerTransferFee": {
+                    "epoch": 701,
+                    "maximumFee": 1000000,
+                    "transferFeeBasisPoints": 100
+                  }
+                }
+              }
+            ]
+          },
+          "type": "mint"
+        },
+        "space": 300
+      },
+      "owner": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+      "executable": false,
+      "rentEpoch": 18446744073709551615,
+      "space": 300
+    }
+  },
+  "id": 1
+}

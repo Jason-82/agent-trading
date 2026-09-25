@@ -1,0 +1,21 @@
+{
+  "synthetic": true,
+  "wallet": "FAe4sisG95oZ42w7buUn5qEE4TAnfTTFPiguZUHmhiF",
+  "wallet_seed": "bytes(range(32))",
+  "foreign": "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
+  "foreign_seed": "bytes([7]*32)",
+  "token_x": "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf",
+  "token_y": "5Z6Ay5NEcbg3xhopc522sBCRXQujkTiuDRnHGfQdcnSf",
+  "dev": "7v54NWdBtkjuAFJrLGsS2SXnuk8nKam81mZJeeYxVFi9",
+  "pool": "mBKqcnGotbsSb5vNrdyhzZ5EhqZdids9QYiTRckvi7v",
+  "usdc_ata": "hkcktF2Akp3vj8pbBVJuxJfk5m41i4t4TSVLx2VoNHT",
+  "wsol_ata": "6G1uk4kms3xPSeX1RwzMaYumnqWBs9xxCEUjZk5MxPvF",
+  "tokenx_ata": "DwsPiR2VF1BbhqbNbcTpFPnSZZbYjxJdUgffQFSqYm4T",
+  "tokeny_ata": "J8HWV2YfeWBJSvmKx8WzAVp7DZ2rZx3PhdZDYnsdXtrs",
+  "buy_signature": "2WKxQevKVD1D3VAkRAzrVcqPK518HsEJ8TYiMWRKKHL6C9jGLic1crVCRycqdqFmKxaRPBwF5NuyrzsRjJUYZmHb",
+  "sell_signature": "gjyj7uu8eEwgpVJVyLSyw7fHzeZNzto93MuvXieuUiap7XjZDzCFymEwm5YrroV7R8UwU5cU7g3PeHrgu9jjQPT",
+  "pre_lamports": 2000000000,
+  "usdc_pre": 500000000,
+  "tokenx_pre": 12345678,
+  "blockhash": "CZ8YUVdk7znjrUmnb5n7kgySk9yRAsQDYmyCxzfSky9t"
+}

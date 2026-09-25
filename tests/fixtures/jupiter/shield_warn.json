@@ -1,0 +1,16 @@
+{
+  "warnings": {
+    "J2xccRtuG43drESLYznHhLhQkLTdfepcKYbiQ9BsJVaf": [
+      {
+        "type": "HAS_FREEZE_AUTHORITY",
+        "message": "Freeze authority is enabled",
+        "severity": "warning"
+      },
+      {
+        "type": "NEW_LISTING",
+        "message": "Listed less than 24h ago",
+        "severity": "info"
+      }
+    ]
+  }
+}
