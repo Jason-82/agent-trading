@@ -1,0 +1,177 @@
+# Tiller default configuration. `tiller init` copies this file to config/tiller.toml.
+#
+# Secrets are NEVER written here. They come from environment variables, which override
+# any value in this file:
+#   TILLER_JUPITER_API_KEY, TILLER_FAMILIARS_API_KEY, TILLER_ANTHROPIC_API_KEY,
+#   TILLER_TELEGRAM_TOKEN, AGENT_WALLET_SECRET
+#
+# Units: *_pct fields in [allocation] are percent of equity (sum to 100); every other
+# fraction (risk thresholds, weights, caps) is a plain fraction (0.05 = 5%); *_bps are
+# basis points; *_usd are US dollars; lamports are 1e-9 SOL; *_h hours; *_min minutes; *_s seconds.
+
+mode = "paper"                      # offline | paper | live
+live_without_familiars_ack = false  # only if familiars.enabled=false and you accept trading without board limits
+
+[paths]
+state_dir = "/state"                # lock, state.json, KILL file, candle cache
+ledger_path = "/state/tiller.sqlite"
+
+[wallet]
+keypair_path = ""                   # 0600 file in a 0700 dir outside the repo; or AGENT_WALLET_SECRET env
+env_secret_var = "AGENT_WALLET_SECRET"
+sol_reserve_lamports = 50000000     # 0.05 SOL never spent
+
+[rpc]
+urls = ["https://mainnet.helius-rpc.com/?api-key=REPLACE_ME", "https://api.mainnet-beta.solana.com"]
+rps = 10.0
+
+[jupiter]
+base_url = "https://api.jup.ag"
+api_key = ""                        # jup_...; empty = keyless 0.5 RPS (prefer TILLER_JUPITER_API_KEY)
+rps = 0.5
+slippage_bps_sol_usdc = 50
+slippage_bps_token = 100
+slippage_bps_emergency = 150
+
+[familiars]
+enabled = true
+base_url = "https://familiars.family"
+api_key = ""                        # fam_... written by `tiller register` (prefer TILLER_FAMILIARS_API_KEY)
+handle = ""
+rps = 1.0
+skill_md_reviewed_at = ""           # ISO date; live mode requires within 30 days
+own_token_mints = []                # any mint the agent/owner deployed (hard-blocked)
+callouts_per_day = 2
+
+[data]
+candle_sources = ["kraken", "coinbase", "csv"]
+csv_dir = "data/history"            # bundled SOL/BTC/ETH daily CSVs for warm-up
+max_candle_age_h = 26
+
+[strategies]
+hold_mint = "So11111111111111111111111111111111111111112"   # JitoSOL only after board eligibility is verified
+
+[strategies.sol_trend_ensemble]
+enabled = true
+lookbacks = [10, 20, 30, 60, 90, 150, 250]
+vol_target = 0.25
+vol_lookback = 90
+cap = 0.40
+btc_confirm = false                 # WP-F sets per docs/BACKTEST.md rule
+sma_n = 200
+hyst = 0.02
+
+[strategies.sol_regime_switch]
+enabled = true
+sma_n = 200
+hyst = 0.02
+btc_confirm = false
+weight = 0.25
+
+[strategies.breakout_4h]
+enabled = false                     # not wired live this session
+
+[allocation]                        # must sum to 100; disabled sleeves fold into cash
+sol_trend_ensemble_pct = 40
+sol_regime_switch_pct = 25
+copy_pct = 5
+breakout_pct = 0
+cash_floor_pct = 30
+
+[risk]
+daily_loss_pct = 0.05               # entries blocked for the UTC day
+dd7_entry_block_pct = 0.15          # from rolling 7-day peak of (equity - net deposits)
+dd30_entry_block_pct = 0.20         # from rolling 30-day peak
+dd30_flatten_pct = 0.25             # hard flatten + halt (sticky until `tiller resume`)
+sol_beta_cap_max = 0.50
+sol_beta_cap_vol = 0.30             # cap = min(max, vol / sigma90_SOL)
+rebalance_band_pct = 0.02
+min_order_usd = 10
+max_entries_per_tick = 1
+max_swaps_per_day = 6               # emergency exits exempt
+consecutive_failure_pause_min = 60
+sim_fail_blocklist_h = 24
+max_positions = 4
+max_token_pct = 0.30
+max_data_age_h = 26
+error_rate_block = 0.5
+
+[risk.canary]
+max_position_usd = 10
+daily_limit_usd = 30
+ramp_steps = [0.25, 0.5, 1.0]
+ramp_step_days = 7
+
+[guard]
+max_price_dev_sol = 0.01
+max_price_dev_token = 0.03
+max_price_dev_emergency = 0.05
+max_impact_core = 0.01
+max_impact_token = 0.03
+max_fee_bps = 10
+routers = ["metis", "jupiterz"]
+# JupiterZ / DFlow program ids must be appended from the Jupiter docs before any live run.
+program_allowlist = [
+  "11111111111111111111111111111111",
+  "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+  "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+  "ComputeBudget111111111111111111111111111111",
+  "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+  "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
+]
+token_gate_established = { min_organic = 50, min_liquidity_usd = 400000, min_age_h = 72, max_top_holders_pct = 35, max_round_trip_pct = 0.015 }
+token_gate_copy = { min_organic = 50, min_liquidity_usd = 250000, min_age_h = 24, max_top_holders_pct = 35, max_round_trip_pct = 0.015 }
+
+[copy]
+shadow_enabled = true
+live = false
+external_wallets = []               # user-curated Solana addresses (e.g. resolved fomo.family leaders)
+board_poll_min = 15
+detail_poll_s = 60
+wallet_poll_s = 60
+rescore_h = 6
+followed_n = 20
+min_days_logged = 14
+min_round_trips = 30
+min_distinct_mints = 10
+min_median_hold_h = 4
+max_single_mint_pnl_share = 0.5
+max_platform_dd = 0.30
+replay_lag_s = 60
+replay_slip = 0.01
+replay_fee = 0.001
+min_replay_pf = 1.3
+min_replay_signals = 20
+cluster_overlap = 0.8
+min_clusters = 3
+window_min = 30
+crowd_burst_max = 15
+late_entry_max_above = 0.15
+stop_pct = 0.20
+trail_pct = 0.25
+trail_from_gain_pct = 0.30
+time_stop_h = 48
+liquidity_collapse_pct = 0.60
+max_concurrent = 2
+max_entries_per_day = 2
+sleeve_cap_pct = 0.05
+per_signal_pct = 0.02
+promotion = { min_days = 60, min_trades = 100, min_expectancy_pct = 0.01, min_p_positive_block20 = 0.80, min_leaders_positive_share = 0.40 }
+
+[llm]
+narrator = "template"               # template | claude
+model = "claude-haiku-4-5"          # only used if narrator = claude
+daily_cap_usd = 0.50
+timeout_s = 5
+
+[alerts]
+telegram_token = ""                 # prefer TILLER_TELEGRAM_TOKEN
+chat_id = ""
+
+[venues.hyperliquid]
+enabled = false
+geo_ack = ""                        # must equal "I am not a US or Ontario person"; module raises NotImplementedError
+[venues.cex]
+enabled = false
+geo_ack = ""

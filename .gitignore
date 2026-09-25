@@ -38,3 +38,15 @@ node_modules/
 .idea/
 .vscode/
 *.swp
+
+# tiller runtime artefacts (WP-A)
+config/tiller.toml
+config/owner_overrides.json
+config/secrets*
+/state/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+KILL
+.coverage
+htmlcov/

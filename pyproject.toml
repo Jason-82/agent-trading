@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tiller"
+version = "0.1.0"
+description = "Tiller: an autonomous, rule-based Solana spot trading agent (daily trend sleeves, guarded Jupiter execution, familiars.family board)."
+requires-python = ">=3.11,<3.12"
+license = { text = "Proprietary" }
+dependencies = [
+    "solders==0.29.0",
+    "httpx==0.28.1",
+    "pydantic==2.13.5",
+    "numpy==2.4.6",
+    "pandas==3.0.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "respx==0.23.1",
+    "ruff",
+    "mypy",
+]
+llm = ["anthropic==1.8.0"]
+# [hl] is deliberately NOT declared: no code in this repository uses the Hyperliquid SDK
+# and the optional venue modules raise NotImplementedError by design.
+
+[project.scripts]
+tiller = "tiller.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tiller = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = ["error::DeprecationWarning:tiller.*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "RUF"]
+ignore = ["E501", "RUF012", "N818"]  # N818: exception names are fixed by the spec (LockHeld, ...)
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src/tiller"]
