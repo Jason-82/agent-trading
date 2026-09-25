@@ -1,0 +1,38 @@
+# systemd unit for Tiller (paper or live). Install:
+#   sudo useradd --system --home /var/lib/tiller --create-home tiller
+#   sudo install -d -o tiller -g tiller -m 0700 /var/lib/tiller/state /var/lib/tiller/secrets
+#   sudo cp deploy/tiller.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#   sudo systemctl enable --now tiller
+# Secrets live in /var/lib/tiller/secrets/tiller.env (mode 0600, owner tiller), never in the unit.
+[Unit]
+Description=Tiller autonomous Solana trading agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tiller
+Group=tiller
+WorkingDirectory=/opt/tiller
+EnvironmentFile=-/var/lib/tiller/secrets/tiller.env
+ExecStart=/opt/tiller/.venv/bin/tiller run --config /opt/tiller/config/tiller.toml
+Restart=on-failure
+RestartSec=30
+TimeoutStopSec=120
+KillSignal=SIGINT
+# hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/tiller/state
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
