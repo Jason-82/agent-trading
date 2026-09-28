@@ -36,12 +36,15 @@ from tiller.models import (
     USDC_MINT,
     AgentDetail,
     DomainModel,
+    ExitRule,
     Position,
     SwapRequest,
 )
 from tiller.risk.account import chain_balances, holding_units
 
 RECONCILED_STRATEGY = "reconciled"
+RECONCILED_TIME_STOP = timedelta(hours=48)
+"""Unmanaged positions accepted from the chain are closed by a time stop unless a strategy claims them."""
 DEFAULT_PENDING_GRACE = timedelta(minutes=5)
 
 
@@ -123,7 +126,14 @@ async def finalize_pending(
             ledger.finalize_order(order_id, None, f"transaction did not show the swap: {e}")
             failed += 1
             continue
-        ledger.finalize_order(order_id, fill.model_copy(update={"mode": req.mode}), None)
+        # the USDC leg is the fill-time truth for the other leg's USD value; marks (which may be
+        # hours stale on a crash recovery) only price the fee
+        update: dict[str, Any] = {"mode": req.mode}
+        if fill.in_mint == USDC_MINT:
+            update["usd_out"] = fill.usd_in
+        elif fill.out_mint == USDC_MINT:
+            update["usd_in"] = fill.usd_out
+        ledger.finalize_order(order_id, fill.model_copy(update=update), None)
         finalized += 1
     return finalized, failed, pending
 
@@ -253,6 +263,14 @@ async def reconcile(
             )
             proposed.append(p.model_copy(update={"amount_base": new_base, "cost_usd": cost}))
     if accept:
+        # a backfilled 'reconciled' row has no strategy managing it: give it a time-stop exit so the
+        # allocator's exit-rule pass closes it instead of letting it sit unmanaged (never SOL)
+        proposed = [
+            p.model_copy(update={"exit": ExitRule(time_stop_at=now + RECONCILED_TIME_STOP)})
+            if p.strategy == RECONCILED_STRATEGY and p.mint != SOL_MINT and p.exit is None
+            else p
+            for p in proposed
+        ]
         ledger.replace_positions(proposed)
         ledger.add_event(
             "warn",

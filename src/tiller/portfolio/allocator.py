@@ -10,7 +10,8 @@ Rules (spec L2 / 'Netting + portfolio SOL-beta cap'):
 4. every mint other than the hold mint is capped at ``max_token_pct`` of equity;
 5. ``delta = target_usd - current_usd``; a trade is emitted only when
    ``|delta| >= max(rebalance_band_pct * equity, min_order_usd)``, except that a ZERO target
-   is an exit and closes the whole holding whenever it is worth at least ``min_order_usd``;
+   is an exit and closes the whole holding whenever it is worth at least ``min_order_usd``
+   (or is booked in the ledger as a position, however small);
    buys are additionally clipped to the USDC headroom above the cash floor;
 6. exits (positions whose :class:`ExitRule` fired, and sells to a zero target) come first,
    then other sells, then at most ``max_entries_per_tick`` buys (largest first).
@@ -56,9 +57,10 @@ class OrderIntent(DomainModel):
 
 
 def sol_beta_cap(sigma90_sol: float | None, cfg: RiskCfg) -> float:
-    """Portfolio SOL-beta cap ``min(cap_max, cap_vol / max(sigma, 0.05))``; ``cap_max`` when sigma is unknown."""
+    """Portfolio SOL-beta cap ``min(cap_max, cap_vol / max(sigma, 0.05))``; 0 when sigma is unknown
+    (fail closed, matching the backtester's ``sol_beta_cap_series`` for nan rv)."""
     if sigma90_sol is None or sigma90_sol != sigma90_sol:  # None or nan
-        return float(cfg.sol_beta_cap_max)
+        return 0.0
     return float(min(cfg.sol_beta_cap_max, cfg.sol_beta_cap_vol / max(float(sigma90_sol), 0.05)))
 
 
@@ -264,7 +266,11 @@ def plan(
         delta = target_usd - current
         label = _strategy_label(n.strategies, cfg.strategies.hold_mint, mint)
         reason = "; ".join(n.reasons)
-        full = n.weight == 0 and current >= Decimal(cfg.risk.min_order_usd)
+        booked = any(p.mint == mint and p.amount_base > 0 for p in acct.positions)
+        # a zero target closes the whole holding when it is worth at least the minimum order OR
+        # when the ledger booked it as a position (a $10 canary lot that drifted to $9.99 must
+        # still be closable); unbooked dust below the minimum is left alone
+        full = n.weight == 0 and current > 0 and (current >= Decimal(cfg.risk.min_order_usd) or booked)
         if delta <= -band or full:
             # a zero target is an exit: exempt from the band (min order still applies) so a flat
             # signal never leaves a residual position behind and canary-sized positions can close

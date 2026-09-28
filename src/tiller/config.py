@@ -237,6 +237,8 @@ class CopyCfg(_Cfg):
     cluster_overlap: float = 0.8
     min_clusters: int = 3
     window_min: int = 30
+    max_signal_age_min: int = 30
+    """A leader buy older than this at detection is history for scoring, never a shadow signal."""
     crowd_burst_max: int = 15
     late_entry_max_above: Decimal = Decimal("0.15")
     stop_pct: Decimal = Decimal("0.20")

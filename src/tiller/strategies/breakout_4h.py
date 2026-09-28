@@ -3,7 +3,7 @@
 Nothing here is wired into the live agent (no GeckoTerminal source, no venue). It exists
 so the rule is certified against the offline study before anyone considers a satellite.
 
-Rule (Study 2, ``scratchpad/analysis/study2_4h_breakout.py``), all on UTC-aligned 4h bars:
+Rule (Study 2, ``research/analysis/study2_4h_breakout.py``), all on UTC-aligned 4h bars:
 
 * signal at the 4h CLOSE of bar t, entry at the OPEN of bar t+1;
 * entry: ``close > max(high[t-20..t-1])`` and ``volume >= 1.5 * median(volume[t-20..t-1])``

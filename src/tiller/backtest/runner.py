@@ -1,6 +1,6 @@
 """Daily backtester with the offline-study conventions, plus the report renderer.
 
-Conventions (``scratchpad/analysis/common.py``, reproduced exactly):
+Conventions (``research/analysis/common.py``, reproduced exactly):
 
 * exposure[t] is decided on the CLOSE of bar t and established at the OPEN of bar t+1
   (the last bar is marked at its own close);

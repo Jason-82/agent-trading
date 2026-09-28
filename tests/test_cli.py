@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -311,3 +312,55 @@ def test_env_secret_var_used_for_signer(tmp_path: Path, monkeypatch: pytest.Monk
     assert type(signer).__name__ == "NullSigner" and signer.pubkey == WALLET
     live = cli.load_signer(cfg, "live", paths, dict(os.environ))
     assert type(live).__name__ == "FileSigner" and live.pubkey == WALLET
+
+
+# --------------------------------------------------------------------------- deposit / withdraw
+
+
+def test_deposit_and_withdraw_record_ledger_transfers(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """``tiller deposit --usd`` / ``withdraw --usd`` book transfers so net deposits stay correct
+    (equity minus net deposits is the P&L series behind the peaks and the daily-loss brake)."""
+    from tiller.ledger import Ledger
+
+    cfg = write_cfg(tmp_path)
+    assert main(["--config", str(cfg), "deposit", "--usd", "250", "--at", "2026-09-24T10:00:00Z"]) == EXIT_OK
+    assert "net deposits now 250" in capsys.readouterr().out
+    assert (
+        main(
+            [
+                "--config",
+                str(cfg),
+                "withdraw",
+                "--usd",
+                "40.5",
+                "--signature",
+                "s" * 88,
+                "--at",
+                "2026-09-24T11:00:00Z",
+            ]
+        )
+        == EXIT_OK
+    )
+    # the same signature twice is booked once (idempotent)
+    assert main(["--config", str(cfg), "withdraw", "--usd", "40.5", "--signature", "s" * 88]) == EXIT_OK
+    assert main(["--config", str(cfg), "deposit", "--usd", "0"]) == EXIT_REFUSED
+    assert (
+        main(["--config", str(cfg), "deposit", "--usd", "5", "--asset", "sol"]) == EXIT_REFUSED
+    )  # needs --price-usd
+    assert (
+        main(["--config", str(cfg), "deposit", "--usd", "300", "--asset", "sol", "--price-usd", "150"])
+        == EXIT_OK
+    )
+    ledger = Ledger(state_paths(load_config(cfg), "paper")["ledger"])
+    try:
+        assert ledger.net_deposits_usd() == Decimal("509.5")
+        rows = ledger._db.execute("SELECT mint, amount_base, direction FROM transfers ORDER BY id").fetchall()
+        assert [(r["direction"], r["amount_base"]) for r in rows] == [
+            ("in", 250_000_000),
+            ("out", 40_500_000),
+            ("in", 2_000_000_000),
+        ]
+    finally:
+        ledger.close()

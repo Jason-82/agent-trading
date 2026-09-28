@@ -33,7 +33,9 @@ DIRECTIVE_PHRASES: tuple[tuple[str, Directive], ...] = (
     ("stop trading", "pause"),
     ("pause", "pause"),
 )
-_SENTENCE_SPLIT = re.compile(r"[.!?;\n]+")
+_SENTENCE_SPLIT = re.compile(r"[.!?;]+|\n\s*\n+")
+"""Sentence boundaries: punctuation or a blank line. A single line break is NOT a boundary, so a
+line-wrapped 'Never<newline>liquidate' cannot become a liquidate order."""
 
 
 class Decision(DomainModel):
@@ -226,7 +228,11 @@ def brake_state(
     reasons: list[str] = []
     start = acct.day.start_equity
     if start > 0:
-        loss = (start - acct.equity_usd) / start
+        # P&L series = equity minus net deposits: a deposit or withdrawal during the day moves both
+        # sides by the same amount and never reads as a gain or loss.
+        start_pnl = start - acct.day.start_net_deposits
+        now_pnl = acct.equity_usd - acct.net_deposits_usd
+        loss = (start_pnl - now_pnl) / start
         if loss >= Decimal(str(cfg.daily_loss_pct)):
             reasons.append(f"daily_loss {loss:.2%} >= {cfg.daily_loss_pct:.0%}")
     dd7 = acct.drawdown_from(acct.peak_7d)
@@ -337,7 +343,8 @@ def size_order(
 
     Caps: ``target`` (the intent), ``stop_risk`` (1% of equity at risk off a gap-adjusted
     stop ``stop_pct * 1.5``), ``max_token_pct`` (remaining, non-hold mints only),
-    ``pool_liquidity`` (1%), ``max_position`` (owner/canary), ``daily_limit`` (remaining),
+    ``pool_liquidity`` (1%), ``max_position`` (owner/canary cap on the resulting position,
+    i.e. remaining headroom over the current holding), ``daily_limit`` (remaining),
     ``sleeve_budget`` (remaining), ``ramp`` (multiplier < 1).
     """
     r = cfg.risk
@@ -351,7 +358,9 @@ def size_order(
     if pool_liquidity_usd is not None:
         caps.append(("pool_liquidity", Decimal(pool_liquidity_usd) * Decimal("0.01")))
     if limits.max_position_usd is not None:
-        caps.append(("max_position", Decimal(limits.max_position_usd)))
+        # owner/canary cap on the RESULTING position: headroom = cap minus what is already held
+        held = current_value_usd(intent.mint, acct, cfg)
+        caps.append(("max_position", Decimal(limits.max_position_usd) - held))
     if limits.daily_limit_usd is not None:
         caps.append(("daily_limit", Decimal(limits.daily_limit_usd) - day.buys_usd))
     if sleeve_budget_usd is not None:

@@ -30,7 +30,7 @@ from tiller.clock import Clock, utc_day_start
 from tiller.familiars.client import POST_TEXT_MAX, FamiliarsClient, PostResult
 from tiller.familiars.narrator import MAX_POST_CHARS, Narrator, TemplateNarrator, validate_post_text
 from tiller.ledger import Ledger
-from tiller.models import DomainModel, Fill, PendingPost, TradeContext
+from tiller.models import DomainModel, Fill, PendingPost, TradeContext, safe_symbol
 from tiller.state import BrakeState
 
 DEFAULT_DELAY_S = 90
@@ -140,6 +140,10 @@ class PostQueue:
         if self._ledger.post(fill.signature) is not None:
             return
         text = self._template.render(ctx)
+        if validate_post_text(text, ctx) is not None:
+            # defence in depth: fall back to the mint prefix as the symbol and re-render
+            ctx = ctx.model_copy(update={"symbol": safe_symbol(None, ctx.mint)})
+            text = self._template.render(ctx)
         mint = fill.out_mint if ctx.side == "buy" else fill.in_mint
         self._contexts[fill.signature] = ctx
         self._ledger.post_upsert(

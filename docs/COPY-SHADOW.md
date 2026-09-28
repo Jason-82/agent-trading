@@ -84,6 +84,19 @@ overlap by more than 80% (one vote per cluster). Sticky pool: enter in the top 2
 ranked within 30. Demotion reasons: absent 48 h, negative 4-week copied P&L, young-mint buy,
 own token, platform drawdown > 30%.
 
+### How the pool reaches the engine (`tiller.copy.pool.LeaderPool`)
+
+The engine's 6 h re-score hook calls `LeaderPool.rescore`: it loads the last 90 days of OUR
+logged leader trades, builds the mark store from prices we logged ourselves (leader fill
+prices plus shadow-trade entry/1h/6h/24h/exit marks), runs `score_leaders` -> `cluster` ->
+`select_pool` and persists the pool, the cluster ids and the scores as a `copy_pool` raw
+snapshot (a restart continues from it). The copy adapter evaluates `consensus` over the
+LOGGED 30-minute window (ledger rows plus the in-memory window, deduped by signature), not
+over one poll's batch, with that pool and those cluster ids. Until the first re-score
+qualifies a leader (eligibility needs >= 14 days of our own logs) the pool is *provisional*:
+every followed key, one cluster each, so the shadow book keeps collecting. `copy.live` stays
+false throughout; nothing in `tiller.copy` can sign or send.
+
 ## Consensus signal (what would be traded)
 
 `strategy.consensus`: >= 3 **distinct clusters** of pool leaders bought the same mint within
@@ -167,7 +180,13 @@ degrades (the gate is re-evaluated every tick, so a degraded book stops new entr
 * Replay marks come from the mark store the engine supplies (Price V3 snapshots); lower
   granularity than a real fill series, so replay P&L is an estimate.
 * The wallet feed cannot value SOL-quoted swaps without a price source and drops them.
-* Per-day entry counting in the live strategy is in memory (a restart resets it); the risk
-  engine's day caps remain the binding guard.
+* Per-day entry counting in the live strategy reads filled `copy_consensus` buys from the
+  ledger (restart safe) plus this process's unfilled proposals; the risk engine's day caps
+  remain the binding guard.
+* Before the first qualifying re-score the consensus pool is provisional (followed keys, one
+  cluster each), so early shadow consensus trades are not sybil-filtered; the report still
+  only matters after 60 days, by which time the scored pool has replaced it.
+* A leader buy detected more than `copy.max_signal_age_min` (30 min) after its fill is logged
+  for replay scoring but never opens a shadow trade (no multi-day "lag" at today's price).
 * The report counts consensus trades only; a book with many followed leaders but few
   consensus events will show `n_trades` well below the per-leader totals.

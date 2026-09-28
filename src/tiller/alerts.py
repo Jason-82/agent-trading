@@ -33,7 +33,13 @@ _SECRET_PATTERNS = (
     re.compile(r"\bjup_[A-Za-z0-9_\-]{6,}"),
     re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{6,}"),
     re.compile(r"\bown_[A-Za-z0-9_\-]{6,}"),
-    re.compile(r"\b\d{8,10}:[A-Za-z0-9_\-]{30,}"),  # telegram bot token
+    re.compile(
+        r"(?<![A-Za-z0-9])(?:bot)?\d{8,10}:[A-Za-z0-9_\-]{30,}"
+    ),  # telegram bot token (also inside /bot<token>/ URLs)
+    re.compile(
+        r"(?i)([?&](?:api[-_]?key|apikey|token|key|secret)=)[^&\s\"']+"
+    ),  # credentials in URL query strings
+    re.compile(r"(?i)(\bx-api-key\b[\"':\s=]+)[A-Za-z0-9_\-]{6,}"),  # header echoes
     re.compile(r"\b[1-9A-HJ-NP-Za-km-z]{64,88}\b"),  # base58 secret key / signature
     re.compile(r"\[[\s]*(?:\d{1,3}[\s]*,[\s]*){63}\d{1,3}[\s]*\]"),  # 64-int JSON keypair array
 )
@@ -45,7 +51,10 @@ def redact(text: str) -> str:
     """Mask anything that looks like a key or signature."""
     out = text
     for rx in _SECRET_PATTERNS:
-        out = rx.sub(REDACTED, out)
+        if rx.groups:
+            out = rx.sub(lambda m: m.group(1) + REDACTED, out)
+        else:
+            out = rx.sub(REDACTED, out)
     return out
 
 

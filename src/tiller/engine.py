@@ -21,7 +21,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, time, timedelta
 from decimal import ROUND_DOWN, Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,6 +43,7 @@ from tiller.models import (
     OwnerLimits,
     SwapRequest,
     TradeContext,
+    safe_symbol,
 )
 from tiller.portfolio.allocator import (
     OrderIntent,
@@ -74,7 +75,7 @@ from tiller.risk.engine import (
     record_success,
     size_order,
 )
-from tiller.risk.reconcile import ReconcileReport, reconcile
+from tiller.risk.reconcile import ReconcileReport, finalize_pending, reconcile
 from tiller.state import AgentState, BrakeState, SleeveState, load_state, save_state
 from tiller.strategies.base import MarketContext, TargetExposure, closed_daily_bars
 from tiller.strategies.indicators import realized_vol
@@ -147,6 +148,46 @@ class TickPlan(DomainModel):
     refused: list[tuple[OrderIntent, str]]
 
 
+class PendingOrder(DomainModel):
+    """A submitted order whose outcome is unknown (ledger state ``submitted``)."""
+
+    mint: str
+    side: Literal["buy", "sell"]
+    usd: Decimal
+    signature: str | None = None
+
+
+def pending_orders(ledger: Ledger, marks: dict[str, Decimal] | None = None) -> list[PendingOrder]:
+    """Submitted-but-unresolved orders from the ledger as :class:`PendingOrder` rows."""
+    out: list[PendingOrder] = []
+    for row in ledger.orders(state="submitted"):
+        try:
+            req = SwapRequest.model_validate_json(str(row["req"]))
+        except Exception:
+            continue
+        if req.input_mint == USDC_MINT:
+            side: Literal["buy", "sell"] = "buy"
+            mint = req.output_mint
+            usd = Decimal(req.amount_base) / Decimal(10**USDC_DECIMALS)
+        else:
+            side = "sell"
+            mint = req.input_mint
+            usd = Decimal(0)
+        out.append(PendingOrder(mint=mint, side=side, usd=usd, signature=row.get("signature")))
+    return out
+
+
+def unreliable_marks(acct: AccountSnapshot) -> list[str]:
+    """Reasons the snapshot's marks must not drive drawdown decisions: a price-source error, or
+    a holding the ledger tracks (SOL or a booked position) that could not be valued."""
+    reasons = [w for w in acct.warnings if w.startswith("price source error")]
+    tracked = {SOL_MINT} | {p.mint for p in acct.positions if p.amount_base > 0}
+    missing = sorted(m for m in acct.unpriced if m in tracked)
+    if missing:
+        reasons.append("marks_unavailable: " + ", ".join(m[:6] for m in missing))
+    return reasons
+
+
 # --------------------------------------------------------------------------- pure planner
 
 
@@ -175,23 +216,45 @@ def plan_tick(
     sigma90: float | None,
     now: datetime,
     gates: dict[str, GateResult] | None = None,
+    pending: list[PendingOrder] | None = None,
 ) -> TickPlan:
-    """Pure: ordered plan with sized entries and refusals. Exits are never blocked."""
+    """Pure: ordered plan with sized entries and refusals. Exits are never blocked.
+
+    ``pending`` lists orders that were submitted but not yet confirmed or failed: a buy (or a
+    non-exit sell) of a mint with a pending order is refused so a pending order is never
+    re-quoted, and pending buys count against the daily limit / swaps until resolved.
+    """
     intents = plan(targets, acct, sigma90, cfg, now=now)
     approved: list[tuple[OrderIntent, SizedOrder]] = []
     refused: list[tuple[OrderIntent, str]] = []
     entries = 0
     allowlist = {SOL_MINT, USDC_MINT, cfg.strategies.hold_mint}
+    pending = list(pending or [])
+    pending_by_mint = {p.mint: p for p in pending}
+    day = acct.day
+    if pending:
+        pending_buys = sum((p.usd for p in pending if p.side == "buy"), Decimal(0))
+        day = day.model_copy(
+            update={
+                "buys_usd": day.buys_usd + pending_buys,
+                "swaps": day.swaps + len(pending),
+                "entries": day.entries + sum(1 for p in pending if p.side == "buy"),
+            }
+        )
     for intent in intents:
+        held_up = pending_by_mint.get(intent.mint)
+        if held_up is not None and not (intent.side == "sell" and intent.is_exit):
+            refused.append(
+                (intent, f"pending order {held_up.signature} for this mint (awaiting confirmation)")
+            )
+            continue
         if intent.side == "sell":
             approved.append((intent, SizedOrder(usd=intent.usd, binding_cap="exit")))
             continue
         if limits is None:
             refused.append((intent, "owner limits unreadable (fail closed)"))
             continue
-        decision = check_entry(
-            intent, acct, brakes, limits, cfg, acct.day, blocklist, entries_this_tick=entries
-        )
+        decision = check_entry(intent, acct, brakes, limits, cfg, day, blocklist, entries_this_tick=entries)
         if not decision.allowed:
             refused.append((intent, "; ".join(decision.reasons)))
             continue
@@ -215,7 +278,7 @@ def plan_tick(
             limits,
             cfg,
             liquidity,
-            acct.day,
+            day,
             stop_pct,
             sleeve_budget_usd=sleeve_budget_remaining(intent.strategy, acct, cfg),
         )
@@ -444,6 +507,20 @@ class Agent:
                     f"{self.state.reconcile_mismatch_ticks} ticks; entries blocked until `tiller reconcile --accept`",
                 )
 
+    async def _finalize_pending_step(self, now: datetime) -> None:
+        """Resolve submitted orders by signature on EVERY tick while any is pending (C2)."""
+        if not self.live or self.deps.rpc is None:
+            return
+        try:
+            done, failed, still = await finalize_pending(
+                self.deps.rpc, self.ledger, self.deps.prices, self.deps.signer_pubkey, now
+            )
+        except Exception as e:
+            self._event("warn", "reconcile.pending_error", {"error": f"{type(e).__name__}: {e}"})
+            return
+        if done or failed:
+            self._event("info", "reconcile.pending", {"finalized": done, "failed": failed, "pending": still})
+
     async def _owner_limits(self, now: datetime) -> tuple[OwnerLimits | None, OwnerLimits | None]:
         owner: OwnerLimits | None = None
         if self.cfg.familiars.enabled and self.deps.familiars is not None:
@@ -585,7 +662,7 @@ class Agent:
                 mint, info, warnings, acc, gate_cfg, self.deps.signer_pubkey, own, blocklist, now, allow
             )
             if info is not None:
-                self._symbols[mint] = info.symbol
+                self._symbols[mint] = safe_symbol(info.symbol, mint)  # metadata is untrusted text
         return out
 
     async def _reference_price(self, mint: str, *, is_exit: bool, emergency: bool) -> Decimal:
@@ -602,11 +679,23 @@ class Agent:
             except Exception as e:
                 warnings.append(f"cex mid error: {type(e).__name__}")
         tol = REF_DISAGREEMENT_EMERGENCY if emergency else REF_DISAGREEMENT
-        single_ok = is_exit or emergency or mint != SOL_MINT or self.cfg.mode == "offline"
+        # spec execution rule 2: a single source is tolerated only in EMERGENCY mode (the kill switch
+        # must not be blocked by its own sanity check); a normal exit still needs two SOL sources
+        single_ok = emergency or mint != SOL_MINT or self.cfg.mode == "offline"
         ref = reference_price(jup, cex, tol, allow_single_source=single_ok, warnings=warnings)
         if warnings:
             self._event("warn", "reference.warning", {"mint": mint, "warnings": warnings})
         return ref
+
+    def _sigma90(self, bars: dict[str, list[Candle]]) -> float | None:
+        """Realised 90-day SOL vol from the bars, else the last rv90 a sleeve persisted."""
+        sigma = sigma90_from_bars(bars.get("SOL") or [])
+        if sigma is not None:
+            return sigma
+        for sleeve in self.state.sleeves.values():
+            if sleeve.rv90 is not None and sleeve.rv90 == sleeve.rv90 and sleeve.rv90 > 0:
+                return float(sleeve.rv90)
+        return None
 
     def _sim_failure(self, mint: str, now: datetime) -> None:
         since = now - timedelta(hours=self.cfg.risk.sim_fail_blocklist_h)
@@ -800,7 +889,8 @@ class Agent:
                 decimals=dict(self._decimals),
                 record=False,
             )
-        if record:
+        if record and not unreliable_marks(acct):
+            # an unpriced holding would record a collapsed equity into the peak/day-start series
             record_snapshot(self.ledger, acct)
             acct = acct.model_copy(update={"day": self.ledger.day_stats(utc_day_start(acct.ts))})
         return acct
@@ -916,6 +1006,8 @@ class Agent:
         await self._ensure_paper_capital(now)
         if self.tick_no == 1 or self.tick_no % self.reconcile_every == 0:
             await self._reconcile_step(now)
+        elif self.ledger.pending_signatures():
+            await self._finalize_pending_step(now)
 
         owner, local = await self._owner_limits(now)
         self.state.last_owner_limits = owner
@@ -953,6 +1045,13 @@ class Agent:
         brakes = brake_state(
             acct, self.cfg.risk, data_age, limits, error_rate, self.state, now, kill_file=kill_present
         )
+        marks_bad = unreliable_marks(acct)
+        if marks_bad:
+            # a collapsed equity figure is a data failure, not a drawdown: fail closed on entries and
+            # drop the equity-derived brake reasons (they would be computed on the wrong number)
+            kept = [r for r in brakes.reasons if not r.startswith(("daily_loss", "dd7", "dd30"))]
+            brakes = brakes.model_copy(update={"entries_blocked": True, "reasons": [*kept, *marks_bad]})
+            self._event("warn", "marks.unreliable", {"reasons": marks_bad, "unpriced": acct.unpriced})
         brakes = brakes.model_copy(update={"consecutive_failures": self.state.brakes.consecutive_failures})
         tripped = brakes.entries_blocked and not prev_blocked
         self.state.brakes = brakes
@@ -965,6 +1064,10 @@ class Agent:
         flattened = False
         evaluated = False
         reason = must_flatten(acct, self.cfg, directive, kill_liquidate, self.state)
+        if reason is not None and reason.startswith("dd30") and marks_bad:
+            # only an explicit liquidate order (directive / KILL file) may flatten on unreliable marks
+            notes.append("dd30 flatten suppressed: " + "; ".join(marks_bad))
+            reason = None
         if reason is not None and reason.startswith("dd30") and is_flat(acct, self.cfg):
             # nothing left to protect: the dd30 ENTRY brake keeps us flat; an explicit liquidate order
             # (directive / KILL file) still halts even when flat.
@@ -979,12 +1082,26 @@ class Agent:
                 fills = await self.flatten(self.state.halt_reason or "halted: retry until flat")
                 flattened = True
             notes.append("halted; run `tiller resume` to trade again")
+        elif marks_bad:
+            # no marks, no plan: stops cannot be ratcheted, targets cannot be valued (fail closed)
+            notes.append("planning skipped: " + "; ".join(marks_bad))
         else:
             self._update_trailing_stops(acct)
             acct = acct.model_copy(update={"positions": self.ledger.positions()})
             targets, evaluated = self._strategy_targets(bars, acct, now, data_stale)
             gates = await self._gates(targets, now)
-            sigma = sigma90_from_bars(bars.get("SOL") or [])
+            sigma = self._sigma90(bars)
+            if sigma is None and any(t.weight > 0 for t in targets):
+                # the beta cap fails closed to 0 without a vol estimate; that must block NEW SOL
+                # exposure, not liquidate the existing position on a candle glitch
+                targets = [t for t in targets if t.weight <= 0 or t.mint != self.cfg.strategies.hold_mint]
+                self.state.brakes = self.state.brakes.model_copy(
+                    update={
+                        "entries_blocked": True,
+                        "reasons": [*self.state.brakes.reasons, "sigma_unavailable"],
+                    }
+                )
+                notes.append("sigma90 unavailable: SOL targets dropped this tick, entries blocked")
             tp = plan_tick(
                 acct,
                 targets,
@@ -996,6 +1113,7 @@ class Agent:
                 sigma90=sigma,
                 now=now,
                 gates=gates,
+                pending=pending_orders(self.ledger),
             )
             intents = tp.intents
             refused = list(tp.refused)

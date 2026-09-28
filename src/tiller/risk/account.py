@@ -223,7 +223,7 @@ async def build_snapshot(
     net_deposits = ledger.net_deposits_usd()
     day_start = utc_day_start(now)
     if record:
-        ledger.set_day_start_equity(day_start, equity)
+        ledger.set_day_start_equity(day_start, equity, net_deposits)
         ledger.add_equity_snapshot(now, equity, net_deposits, "tick")
     day = ledger.day_stats(day_start)
     if day.start_equity <= 0:
@@ -261,7 +261,7 @@ async def build_snapshot(
 
 def record_snapshot(ledger: Ledger, acct: AccountSnapshot) -> None:
     """Store the equity snapshot and (first call of the day only) the day-start equity."""
-    ledger.set_day_start_equity(utc_day_start(acct.ts), acct.equity_usd)
+    ledger.set_day_start_equity(utc_day_start(acct.ts), acct.equity_usd, acct.net_deposits_usd)
     ledger.add_equity_snapshot(acct.ts, acct.equity_usd, acct.net_deposits_usd, "tick")
 
 

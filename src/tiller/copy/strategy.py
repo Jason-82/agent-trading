@@ -21,10 +21,11 @@ from typing import Any, Literal
 
 from pydantic import field_validator
 
+from tiller.clock import utc_day_start
 from tiller.copy.leaders import copy_exit_rule
 from tiller.copy.models import LeaderTrade
 from tiller.copy.shadow import ShadowTracker
-from tiller.models import DomainModel, TokenInfoBoard, _to_utc
+from tiller.models import USDC_MINT, DomainModel, TokenInfoBoard, _to_utc
 from tiller.state import SleeveState
 from tiller.strategies.base import MarketContext, TargetExposure
 
@@ -199,8 +200,20 @@ class ConsensusCopyStrategy:
         self._candidates = list(candidates)
 
     def entries_today(self, now: datetime) -> int:
+        """Entries this UTC day: FILLED copy_consensus buys in the ledger (restart safe) plus proposals
+        made this process that have not yet reached the ledger."""
         day = now.date()
-        return sum(1 for e in self._entries if e.ts.date() == day)
+        proposed = {e.mint for e in self._entries if e.ts.date() == day}
+        filled: set[str] = set()
+        ledger = getattr(self.tracker, "ledger", None)
+        if ledger is not None:
+            try:
+                for f in ledger.fills(since=utc_day_start(now)):
+                    if f.strategy == self.name and f.out_mint != USDC_MINT:
+                        filled.add(f.out_mint)
+            except Exception:
+                pass
+        return len(filled | proposed)
 
     def enabled(self) -> tuple[bool, str]:
         """(True, 'ok') when live copy may emit entries; otherwise the first blocking reason."""

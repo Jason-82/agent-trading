@@ -2,7 +2,7 @@
 
 Commands: init | keygen | register | preflight | backtest | tick --once | run | status |
 shadow-report | pause | resume | flatten --yes | reconcile [--accept] | sweep --to --keep --yes |
-export-tax | review. Every command exits 0 on success, 1 on a runtime error and 2 when it
+deposit --usd | withdraw --usd | export-tax | review. Every command exits 0 on success, 1 on a runtime error and 2 when it
 refuses to act (missing acknowledgement, missing ``--yes``, existing key, ...).
 
 Modes: ``live`` signs with :class:`FileSigner`; ``paper`` uses live quotes with a
@@ -194,18 +194,44 @@ def _narrator(cfg: Config, clock: Clock, ledger: Ledger) -> Narrator:
 class _CopyFeedAdapter:
     """Engine hook ``poll(now)`` over WP-E's ``FamiliarsFeed`` / ``WalletFeed`` (``poll(keys)``).
 
-    Every chain-verified leader trade is handed to the shadow tracker with the followed set as
-    the pool and the consensus mints of the window. Leader SCORING (eligibility, replay, clusters,
-    sticky pool) is not wired here: the pool is the followed handles / configured wallets and each
-    key is its own cluster, so shadow trades are recorded but no promotion can pass without WP-E's
-    scoring pass.
+    Consensus is evaluated over the LOGGED window (``window_min``) of chain-verified trades, not
+    over one poll's batch: trades are merged from the ledger (when given) and an in-memory
+    window. The pool and cluster ids come from the scored sticky :class:`LeaderPool` once it has
+    qualified leaders; before that a provisional pool (every followed key, one cluster each) keeps
+    the shadow book collecting data. Nothing here has order authority.
     """
 
-    def __init__(self, feed: Any, keys_fn: Callable[[], Any], shadow: Any, cfg: Config) -> None:
+    def __init__(
+        self,
+        feed: Any,
+        keys_fn: Callable[[], Any],
+        shadow: Any,
+        cfg: Config,
+        *,
+        ledger: Ledger | None = None,
+        pool: Any | None = None,
+    ) -> None:
         self.feed = feed
         self.keys_fn = keys_fn
         self.shadow = shadow
         self.cfg = cfg
+        self.ledger = ledger
+        self.pool = pool
+        self._recent: dict[str, Any] = {}  # signature -> LeaderTrade inside the window
+
+    def _window_trades(self, since: datetime, now: datetime, fresh: list[Any]) -> list[Any]:
+        for t in fresh:
+            self._recent[t.signature] = t
+        self._recent = {sig: t for sig, t in self._recent.items() if since <= t.ts <= now}
+        merged: dict[str, Any] = dict(self._recent)
+        if self.ledger is not None:
+            try:
+                for t in self.ledger.leader_trades(since=since):
+                    if t.ts <= now:
+                        merged.setdefault(t.signature, t)
+            except Exception:
+                pass
+        return sorted(merged.values(), key=lambda t: (t.ts, t.signature))
 
     async def poll(self, now: datetime) -> None:
         from tiller.copy.strategy import consensus
@@ -213,33 +239,36 @@ class _CopyFeedAdapter:
         keys = list(await self.keys_fn())
         if not keys:
             return
-        trades = await self.feed.poll(keys)
-        if not trades:
+        trades = list(await self.feed.poll(keys))
+        window = timedelta(minutes=self.cfg.copy.window_min)
+        window_trades = self._window_trades(now - window, now, trades)
+        if not window_trades:
             return
-        pool = {t.key for t in trades}
-        clusters = {k: i for i, k in enumerate(sorted(pool))}
-        signals = consensus(
-            trades,
-            pool,
-            clusters,
-            timedelta(minutes=self.cfg.copy.window_min),
-            self.cfg.copy.min_clusters,
-            now,
-        )
-        await self.shadow.on_leader_trades(trades, pool, [s.mint for s in signals])
+        followed = {t.key for t in window_trades}
+        if self.pool is not None:
+            pool, clusters, _provisional = self.pool.effective(followed)
+        else:
+            pool = set(followed)
+            clusters = {k: i for i, k in enumerate(sorted(pool))}
+        signals = consensus(window_trades, pool, clusters, window, self.cfg.copy.min_clusters, now)
+        if not trades and not signals:
+            return
+        await self.shadow.on_leader_trades(window_trades, pool, [s.mint for s in signals])
 
 
 class _ShadowAdapter:
-    """Engine hooks ``mark(now)`` / ``rescore(now)`` over WP-E's ``ShadowTracker``."""
+    """Engine hooks ``mark(now)`` / ``rescore(now)`` over WP-E's ``ShadowTracker`` and ``LeaderPool``."""
 
-    def __init__(self, tracker: Any) -> None:
+    def __init__(self, tracker: Any, pool: Any | None = None) -> None:
         self.tracker = tracker
+        self.pool = pool
 
     async def mark(self, now: datetime) -> None:
         await self.tracker.mark_and_exit()
 
     async def rescore(self, now: datetime) -> None:
-        return None  # leader re-scoring needs WP-E's mark store; see the runbook
+        if self.pool is not None:
+            await self.pool.rescore(now)
 
     def report(self, days: int = 60) -> Any:
         return self.tracker.report(days)
@@ -257,16 +286,22 @@ def _copy_hooks(
     jup: Any | None,
     taker: str,
 ) -> tuple[Any | None, tuple[Any | None, Any | None]]:
-    """WP-E shadow tracker and feeds when the copy package is installed and shadowing is on."""
+    """WP-E shadow tracker, scored leader pool and feeds when shadowing is on."""
     if not cfg.copy.shadow_enabled or rpc is None or prices is None or tokens is None:
         return None, (None, None)
     try:
         from tiller.copy.feeds import FamiliarsFeed, WalletFeed
+        from tiller.copy.pool import LeaderPool
         from tiller.copy.shadow import ShadowTracker
     except Exception:
         return None, (None, None)
     tracker = ShadowTracker(jup, prices, tokens, ledger, cfg.copy, clock, taker=taker)
-    shadow = _ShadowAdapter(tracker)
+
+    async def details(handle: str) -> Any:
+        return None if familiars is None else await familiars.agent(handle)
+
+    pool = LeaderPool(ledger, cfg.copy, clock, details_fn=details, token_info_fn=tokens.token_info)
+    shadow = _ShadowAdapter(tracker, pool)
     fam_feed = None
     if familiars is not None and cfg.familiars.handle:
 
@@ -274,14 +309,18 @@ def _copy_hooks(
             agents = await familiars.agents("7D")
             return [a.handle for a in agents if a.handle != cfg.familiars.handle][: cfg.copy.followed_n]
 
-        fam_feed = _CopyFeedAdapter(FamiliarsFeed(familiars, rpc, ledger, clock), followed, tracker, cfg)
+        fam_feed = _CopyFeedAdapter(
+            FamiliarsFeed(familiars, rpc, ledger, clock), followed, tracker, cfg, ledger=ledger, pool=pool
+        )
     wallet_feed = None
     if cfg.copy.external_wallets:
 
         async def wallets() -> list[str]:
             return list(cfg.copy.external_wallets)
 
-        wallet_feed = _CopyFeedAdapter(WalletFeed(rpc, ledger, clock, prices=prices), wallets, tracker, cfg)
+        wallet_feed = _CopyFeedAdapter(
+            WalletFeed(rpc, ledger, clock, prices=prices), wallets, tracker, cfg, ledger=ledger, pool=pool
+        )
     return shadow, (fam_feed, wallet_feed)
 
 
@@ -728,8 +767,16 @@ def cmd_flatten(args: argparse.Namespace) -> int:
     mode = _mode(cfg, args)
     clock = _clock(args)
     paths = state_paths(cfg, mode)
-    _deps, agent = build_deps(cfg, mode, clock, paths)
-    fills = asyncio.run(agent.flatten("cli flatten --yes"))
+    lock = InstanceLock(paths["lock"], clock)
+    try:
+        lock.acquire()  # the running agent must not sign concurrently
+    except LockHeld as e:
+        raise Refused(f"the agent is running ({e}); stop it before flattening from the CLI") from e
+    try:
+        _deps, agent = build_deps(cfg, mode, clock, paths)
+        fills = asyncio.run(agent.flatten("cli flatten --yes"))
+    finally:
+        lock.release()
     for f in fills:
         print(f"sold {f.in_mint[:6]} for {f.usd_out:.2f} USD sig={f.signature}")
     print(f"flatten done: {len(fills)} fills; state halted until `tiller resume`")
@@ -833,6 +880,39 @@ def build_usdc_transfer(owner: str, to: str, amount_base: int, blockhash: str) -
     return bytes(VersionedTransaction.populate(msg, [Signature.default()]))
 
 
+SYSTEM_PROGRAM = "11111111111111111111111111111111"
+SWEEP_CONFIRM_TIMEOUT_S = 90.0
+SWEEP_POLL_S = 3.0
+
+
+def destination_check(account: dict[str, Any] | None) -> str | None:
+    """Reason a sweep destination is NOT a plain wallet (None = acceptable).
+
+    A destination must be absent (never funded yet) or a System-Program-owned account with no
+    data: a token account (or any program account) as ``--to`` would derive an ATA owned by that
+    account, and nobody can sign for it, so the funds would be unrecoverable.
+    """
+    if account is None:
+        return None
+    owner = str(account.get("owner") or "")
+    if owner != SYSTEM_PROGRAM:
+        return f"destination is owned by program {owner}, not the System Program (a token account?)"
+    if bool(account.get("executable")):
+        return "destination is an executable program account"
+    data = account.get("data")
+    space = account.get("space")
+    has_data = False
+    if isinstance(data, list):
+        has_data = bool(data and data[0])
+    elif isinstance(data, dict):
+        has_data = bool(data.get("parsed") or data.get("program"))
+    elif isinstance(data, str):
+        has_data = bool(data)
+    if has_data or (isinstance(space, int) and space > 0):
+        return "destination account carries data; only a plain wallet address is accepted"
+    return None
+
+
 def cmd_sweep(args: argparse.Namespace) -> int:
     if not args.yes:
         raise Refused("sweep moves funds out of the hot wallet; pass --yes to confirm (non-interactive)")
@@ -843,34 +923,147 @@ def cmd_sweep(args: argparse.Namespace) -> int:
     keep = Decimal(str(args.keep))
     if keep < 0:
         raise Refused("--keep must be >= 0")
+    from solders.pubkey import Pubkey
+
+    try:
+        Pubkey.from_string(args.to)
+    except Exception as e:
+        raise Refused(f"--to is not a valid Solana address: {e}") from e
     clock = _clock(args)
     paths = state_paths(cfg, mode)
-    deps, _agent = build_deps(cfg, mode, clock, paths)
-    signer = FileSigner.load(cfg.wallet.keypair_path, os.environ.get(cfg.wallet.env_secret_var))
-    rpc = deps.rpc
-    call = getattr(rpc, "call", None)
-    if rpc is None or call is None:
-        raise Refused("sweep needs a JSON-RPC client with sendTransaction support")
+    lock = InstanceLock(paths["lock"], clock)
+    try:
+        lock.acquire()  # never sign a transfer while `tiller run` may be signing a swap
+    except LockHeld as e:
+        raise Refused(
+            f"the agent is running ({e}); stop it (or wait for a stale lock) before sweeping"
+        ) from e
+    try:
+        deps, _agent = build_deps(cfg, mode, clock, paths)
+        signer = FileSigner.load(cfg.wallet.keypair_path, os.environ.get(cfg.wallet.env_secret_var))
+        rpc = deps.rpc
+        call = getattr(rpc, "call", None)
+        if rpc is None or call is None:
+            raise Refused("sweep needs a JSON-RPC client with sendTransaction support")
+        if args.to == signer.pubkey:
+            raise Refused("--to is the hot wallet itself")
 
-    async def go() -> int:
-        accounts = await rpc.get_token_accounts_by_owner(signer.pubkey)
-        usdc = sum(a.amount_base for a in accounts if a.mint == USDC_MINT and a.owner == signer.pubkey)
-        amount = usdc - int(keep * 10**USDC_DECIMALS)
-        if amount <= 0:
-            print(f"nothing to sweep: USDC balance {Decimal(usdc) / 10**USDC_DECIMALS} <= keep {keep}")
-            return EXIT_OK
-        bh = await call("getLatestBlockhash", [{"commitment": "finalized"}])
-        blockhash = str(bh["value"]["blockhash"])
-        unsigned = build_usdc_transfer(signer.pubkey, args.to, amount, blockhash)
-        signed = signer.sign_transaction(unsigned)
-        usd = Decimal(amount) / 10**USDC_DECIMALS
-        print(f"sweeping {usd} USDC from {signer.pubkey} to {args.to} (keeping {keep})")
-        sig = await call("sendTransaction", [base64.b64encode(signed).decode(), {"encoding": "base64"}])
-        deps.ledger.record_transfer(clock.now(), USDC_MINT, amount, usd, "out", signature=str(sig))
-        print(f"sent: signature {sig}")
-        return EXIT_OK
+        async def go() -> int:
+            accounts = await rpc.get_token_accounts_by_owner(signer.pubkey)
+            usdc = sum(a.amount_base for a in accounts if a.mint == USDC_MINT and a.owner == signer.pubkey)
+            amount = usdc - int(keep * 10**USDC_DECIMALS)
+            if amount <= 0:
+                print(f"nothing to sweep: USDC balance {Decimal(usdc) / 10**USDC_DECIMALS} <= keep {keep}")
+                return EXIT_OK
+            info = await call(
+                "getAccountInfo", [args.to, {"encoding": "jsonParsed", "commitment": "confirmed"}]
+            )
+            account = info.get("value") if isinstance(info, dict) else None
+            why = destination_check(account)
+            dest_ata = derive_ata(args.to, USDC_MINT, TOKEN_PROGRAM)
+            print(
+                f"destination {args.to}: {'absent' if account is None else 'system-owned wallet' if why is None else why}"
+            )
+            print(f"destination USDC ATA {dest_ata}")
+            if why is not None:
+                raise Refused(f"sweep destination rejected: {why}")
+            bh = await call("getLatestBlockhash", [{"commitment": "finalized"}])
+            blockhash = str(bh["value"]["blockhash"])
+            unsigned = build_usdc_transfer(signer.pubkey, args.to, amount, blockhash)
+            signed = signer.sign_transaction(unsigned)
+            usd = Decimal(amount) / 10**USDC_DECIMALS
+            print(f"sweeping {usd} USDC from {signer.pubkey} to {args.to} (keeping {keep})")
+            sig = str(
+                await call("sendTransaction", [base64.b64encode(signed).decode(), {"encoding": "base64"}])
+            )
+            print(f"sent: signature {sig}; waiting for confirmation")
+            deps.ledger.add_event("info", "sweep.sent", {"signature": sig, "usd": str(usd), "to": args.to})
+            status = await _await_confirmation(call, sig)
+            if status == "confirmed":
+                deps.ledger.record_transfer(clock.now(), USDC_MINT, amount, usd, "out", signature=sig)
+                print("confirmed: withdrawal recorded in the ledger")
+                return EXIT_OK
+            if status == "failed":
+                deps.ledger.add_event("warn", "sweep.failed", {"signature": sig})
+                print("the transfer FAILED on chain; nothing recorded", file=sys.stderr)
+                return EXIT_ERROR
+            deps.ledger.add_event("warn", "sweep.unconfirmed", {"signature": sig, "usd": str(usd)})
+            print(
+                f"not confirmed within {SWEEP_CONFIRM_TIMEOUT_S:.0f}s; NOT recorded. Check the signature and, "
+                f"once it lands, run `tiller withdraw --usd {usd} --signature {sig}`",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
 
-    return asyncio.run(go())
+        return asyncio.run(go())
+    finally:
+        lock.release()
+
+
+async def _await_confirmation(call: Callable[..., Any], sig: str) -> str:
+    """Poll getSignatureStatuses: 'confirmed' | 'failed' | 'unknown' (timeout)."""
+    waited = 0.0
+    while waited <= SWEEP_CONFIRM_TIMEOUT_S:
+        try:
+            res = await call("getSignatureStatuses", [[sig], {"searchTransactionHistory": True}])
+        except Exception:
+            res = None
+        value = (res or {}).get("value") if isinstance(res, dict) else None
+        st = value[0] if isinstance(value, list) and value else None
+        if isinstance(st, dict):
+            if st.get("err") is not None:
+                return "failed"
+            if st.get("confirmationStatus") in ("confirmed", "finalized"):
+                return "confirmed"
+        await asyncio.sleep(SWEEP_POLL_S)
+        waited += SWEEP_POLL_S
+    return "unknown"
+
+
+# --------------------------------------------------------------------------- deposits / withdrawals
+
+
+def _record_transfer_cmd(args: argparse.Namespace, direction: Literal["in", "out"]) -> int:
+    """``tiller deposit`` / ``tiller withdraw``: book a transfer so net deposits (and therefore the
+    deposit-adjusted peaks, the daily-loss brake and the P&L reports) stay correct."""
+    cfg = _load_cfg(args)
+    mode = _mode(cfg, args)
+    usd = Decimal(str(args.usd))
+    if usd <= 0:
+        raise Refused("--usd must be positive")
+    asset = str(args.asset).lower()
+    if asset == "usdc":
+        mint, base = USDC_MINT, int((usd * 10**USDC_DECIMALS).to_integral_value())
+    elif asset == "sol":
+        if args.price_usd is None or Decimal(str(args.price_usd)) <= 0:
+            raise Refused("--price-usd (USD per SOL at transfer time) is required for SOL transfers")
+        sol = usd / Decimal(str(args.price_usd))
+        mint, base = SOL_MINT, int((sol * 10**9).to_integral_value())
+    else:
+        raise Refused("--asset must be usdc or sol")
+    clock = _clock(args)
+    paths = state_paths(cfg, mode)
+    paths["state_dir"].mkdir(parents=True, exist_ok=True)
+    ledger = Ledger(paths["ledger"], clock=clock)
+    try:
+        ledger.record_transfer(clock.now(), mint, base, usd, direction, signature=args.signature)
+        net = ledger.net_deposits_usd()
+        ledger.add_event(
+            "info", f"transfer.{direction}", {"usd": str(usd), "mint": mint, "signature": args.signature}
+        )
+    finally:
+        ledger.close()
+    verb = "deposit" if direction == "in" else "withdrawal"
+    print(f"recorded {verb} of {usd} USD ({asset.upper()}) in {paths['ledger']}; net deposits now {net} USD")
+    return EXIT_OK
+
+
+def cmd_deposit(args: argparse.Namespace) -> int:
+    return _record_transfer_cmd(args, "in")
+
+
+def cmd_withdraw(args: argparse.Namespace) -> int:
+    return _record_transfer_cmd(args, "out")
 
 
 def cmd_export_tax(args: argparse.Namespace) -> int:
@@ -1054,6 +1247,23 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--mode", choices=["live"])
     s.add_argument("--at")
     s.set_defaults(fn=cmd_sweep)
+
+    for name, fn, help_text in (
+        ("deposit", cmd_deposit, "record a deposit into the trading wallet (keeps net deposits correct)"),
+        (
+            "withdraw",
+            cmd_withdraw,
+            "record a withdrawal from the trading wallet (keeps net deposits correct)",
+        ),
+    ):
+        s = sub.add_parser(name, help=help_text)
+        s.add_argument("--usd", required=True, type=str, help="USD value of the transfer at transfer time")
+        s.add_argument("--asset", default="usdc", choices=["usdc", "sol"])
+        s.add_argument("--price-usd", default=None, dest="price_usd", help="USD per SOL (SOL transfers)")
+        s.add_argument("--signature", default=None, help="transaction signature (dedupes repeats)")
+        s.add_argument("--mode", choices=["offline", "paper", "live"])
+        s.add_argument("--at")
+        s.set_defaults(fn=fn)
 
     s = sub.add_parser("export-tax", help="write every fill with USD fair values to CSV")
     s.add_argument("--out", required=True)

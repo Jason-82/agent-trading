@@ -1,7 +1,7 @@
 """Pure numpy indicators with the offline-study conventions.
 
 Every function is causal: output[t] depends only on inputs[0..t]. Positions that lack a
-full window are ``nan``. Conventions match ``scratchpad/analysis`` (the offline studies):
+full window are ``nan``. Conventions match ``research/analysis`` (the offline studies):
 
 * ``sma``/rolling max/min/std use a window of exactly ``n`` bars ending at ``t``;
 * ``ema`` is ``span=n, adjust=False`` (alpha = 2/(n+1)), seeded with the first value;

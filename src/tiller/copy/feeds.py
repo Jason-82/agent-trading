@@ -405,9 +405,8 @@ class WalletFeed:
                     "warn", "wallet_feed_error", {"wallet": wallet, "error": str(exc)[:200]}
                 )
                 continue
-            if rows:
-                self._last_seen[wallet] = str(rows[0].get("signature"))
-            for row in rows:
+            last_failed: int | None = None  # index (newest first) of the oldest unresolved row
+            for idx, row in enumerate(rows):
                 sig = str(row.get("signature") or "")
                 if not sig or row.get("err") is not None or sig in self._known or sig in self._inspected:
                     continue
@@ -419,9 +418,11 @@ class WalletFeed:
                         "warn", "wallet_feed_error", {"wallet": wallet, "error": str(exc)[:200]}
                     )
                     self._inspected.discard(sig)
+                    last_failed = idx
                     continue
                 if tx is None:
                     self._inspected.discard(sig)
+                    last_failed = idx
                     continue
                 if not sol_usd_fetched:
                     sol_usd = await self._sol_usd()
@@ -432,4 +433,11 @@ class WalletFeed:
                 if self.ledger.upsert_leader_trades([trade]) > 0:
                     self._known.add(sig)
                     out.append(trade)
+            # advance the cursor only past rows that were resolved: an unresolved signature must be
+            # fetched again on the next poll (``until`` excludes everything at or older than it)
+            if rows:
+                if last_failed is None:
+                    self._last_seen[wallet] = str(rows[0].get("signature"))
+                elif last_failed + 1 < len(rows):
+                    self._last_seen[wallet] = str(rows[last_failed + 1].get("signature"))
         return out

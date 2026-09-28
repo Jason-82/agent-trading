@@ -354,3 +354,25 @@ def test_leader_trade_roundtrip_through_ledger(tmp_ledger: Ledger, sim_clock: Si
     assert tmp_ledger.upsert_leader_trades([t]) == 1
     assert tmp_ledger.upsert_leader_trades([t]) == 0
     assert tmp_ledger.leader_trades(since=sim_clock.now() - timedelta(days=1)) == [t]
+
+
+async def test_wallet_feed_cursor_does_not_skip_an_unresolved_signature(
+    load_fixture: Callable[[str], Any], sim_clock: SimClock, tmp_ledger: Ledger
+) -> None:
+    """A getTransaction miss must not advance ``until`` past that signature (it is fetched again)."""
+    rows = [
+        {"signature": SIGS["leader_sell_token"], "slot": 2, "err": None, "blockTime": 1790207200},
+        {"signature": SIGS["leader_buy_token"], "slot": 0, "err": None, "blockTime": 1790200000},
+    ]
+    rpc = FakeRpc(
+        signatures={LEADER: rows},
+        transactions={SIGS["leader_sell_token"]: _tx(load_fixture, "tx_leader_sell_token")},  # buy missing
+    )
+    feed = WalletFeed(rpc, tmp_ledger, sim_clock)
+    assert [t.side for t in await feed.poll([LEADER])] == ["sell"]
+    # the cursor stays BELOW the unresolved buy so the next poll asks for it again
+    assert feed._last_seen.get(LEADER) is None
+    rpc.transactions[SIGS["leader_buy_token"]] = _tx(load_fixture, "tx_leader_buy_token")
+    assert [t.side for t in await feed.poll([LEADER])] == ["buy"]
+    assert feed._last_seen[LEADER] == SIGS["leader_sell_token"]
+    assert await feed.poll([LEADER]) == []

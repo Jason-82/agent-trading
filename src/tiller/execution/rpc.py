@@ -107,6 +107,15 @@ def parse_token_account_value(pubkey: str, account: dict[str, Any]) -> TokenAcco
     )
 
 
+def endpoint_label(url: str, idx: int) -> str:
+    """Credential-free name for an endpoint (host + index); the query string is never echoed."""
+    try:
+        host = httpx.URL(url).host or "rpc"
+    except Exception:
+        host = "rpc"
+    return f"rpc[{idx}]@{host}"
+
+
 class HttpRpc:
     """JSON-RPC client over httpx with endpoint failover and a shared token bucket."""
 
@@ -140,25 +149,26 @@ class HttpRpc:
         self._id += 1
         body = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params}
         last_error: Exception | None = None
-        for url in self.urls:
+        for idx, url in enumerate(self.urls):
+            label = endpoint_label(url, idx)  # never the raw url: provider keys live in the query string
             try:
                 resp = await self._http.request("POST", url, json=body)
             except httpx.HTTPError as e:
-                last_error = e
+                last_error = RpcUnavailable(f"{label}: {type(e).__name__}")
                 continue
             if resp.status_code >= 500 or resp.status_code == 429:
-                last_error = RpcUnavailable(f"{url}: HTTP {resp.status_code}")
+                last_error = RpcUnavailable(f"{label}: HTTP {resp.status_code}")
                 continue
             if resp.status_code >= 400:
                 raise RpcError(f"{method}: HTTP {resp.status_code}", code=resp.status_code)
             try:
                 payload = resp.json()
-            except json.JSONDecodeError as e:
-                last_error = e
+            except json.JSONDecodeError:
+                last_error = RpcUnavailable(f"{label}: invalid JSON")
                 self._http.errors.mark_last(True)
                 continue
             if not isinstance(payload, dict):
-                last_error = RpcUnavailable(f"{url}: non-object response")
+                last_error = RpcUnavailable(f"{label}: non-object response")
                 continue
             if "error" in payload and payload["error"] is not None:
                 err = payload["error"]
@@ -167,7 +177,7 @@ class HttpRpc:
                     raise RpcError(str(err.get("message")), code=err.get("code"), data=err.get("data"))
                 raise RpcError(str(err))
             return payload.get("result")
-        raise RpcUnavailable(f"all RPC endpoints failed for {method}: {last_error!r}")
+        raise RpcUnavailable(f"all RPC endpoints failed for {method}: {last_error}")
 
     def error_rate(self) -> float:
         """Error share over the last ten HTTP calls (transport errors, 4xx/5xx, RPC errors)."""

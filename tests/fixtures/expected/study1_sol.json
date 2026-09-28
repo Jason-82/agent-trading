@@ -1,5 +1,5 @@
 {
- "_provenance": "scratchpad/analysis/out/study1.json (study1_daily_trend.py), Binance spot daily bars through 2026-09-23, signal on close t / fill open t+1 / cost per side on turnover, warmup 250 bars, 365 periods per year",
+ "_provenance": "research/analysis/out/study1.json (study1_daily_trend.py), Binance spot daily bars through 2026-09-23, signal on close t / fill open t+1 / cost per side on turnover, warmup 250 bars, 365 periods per year",
  "_units": "fractions (0.148 = 14.8%); sharpe annualised at 0% risk-free; turnover_per_year in units of equity traded per year",
  "tolerances": {
   "cagr": 0.01,

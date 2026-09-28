@@ -104,9 +104,18 @@ CREATE TABLE IF NOT EXISTS blocklist (
   mint TEXT PRIMARY KEY, until TEXT NOT NULL, reason TEXT
 );
 CREATE TABLE IF NOT EXISTS day_stats (
-  day TEXT PRIMARY KEY, start_equity TEXT NOT NULL
+  day TEXT PRIMARY KEY, start_equity TEXT NOT NULL, start_net_deposits TEXT NOT NULL DEFAULT '0'
 );
 """
+
+MIGRATIONS = (
+    # (table, column, DDL) applied when the column is missing (ledgers created before the column existed)
+    (
+        "day_stats",
+        "start_net_deposits",
+        "ALTER TABLE day_stats ADD COLUMN start_net_deposits TEXT NOT NULL DEFAULT '0'",
+    ),
+)
 
 
 def _iso(t: datetime) -> str:
@@ -148,6 +157,10 @@ class Ledger:
         self._db.execute("PRAGMA synchronous=NORMAL")
         self._db.execute("PRAGMA foreign_keys=ON")
         self._db.executescript(SCHEMA)
+        for table, column, ddl in MIGRATIONS:
+            cols = {r["name"] for r in self._db.execute(f"PRAGMA table_info({table})").fetchall()}
+            if column not in cols:
+                self._db.execute(ddl)
         self._clock = clock
 
     def close(self) -> None:
@@ -260,21 +273,31 @@ class Ledger:
             )
 
     def _position_sub(self, mint: str, strategy: str, base: int) -> None:
-        row = self._db.execute(
-            "SELECT amount_base, cost_usd FROM positions WHERE mint=? AND strategy=?", (mint, strategy)
-        ).fetchone()
-        if row is None:
-            return
-        have = int(row["amount_base"])
-        remaining = have - base
-        if remaining <= 0:
-            self._db.execute("DELETE FROM positions WHERE mint=? AND strategy=?", (mint, strategy))
-            return
-        cost = _dec(row["cost_usd"]) * Decimal(remaining) / Decimal(have)
-        self._db.execute(
-            "UPDATE positions SET amount_base=?, cost_usd=? WHERE mint=? AND strategy=?",
-            (remaining, str(cost), mint, strategy),
-        )
+        """Reduce the mint's rows by ``base``: the row labelled ``strategy`` first, then the other
+        rows of that mint oldest first (a flatten sells under 'flatten', reconciled rows under
+        'reconciled'; a sell must never leave a phantom position behind)."""
+        rows = self._db.execute(
+            "SELECT strategy, amount_base, cost_usd, opened_at FROM positions WHERE mint=? "
+            "ORDER BY opened_at, strategy",
+            (mint,),
+        ).fetchall()
+        ordered = sorted(rows, key=lambda r: 0 if r["strategy"] == strategy else 1)
+        left = base
+        for row in ordered:
+            if left <= 0:
+                break
+            have = int(row["amount_base"])
+            take = min(have, left)
+            left -= take
+            remaining = have - take
+            if remaining <= 0:
+                self._db.execute("DELETE FROM positions WHERE mint=? AND strategy=?", (mint, row["strategy"]))
+                continue
+            cost = _dec(row["cost_usd"]) * Decimal(remaining) / Decimal(have)
+            self._db.execute(
+                "UPDATE positions SET amount_base=?, cost_usd=? WHERE mint=? AND strategy=?",
+                (remaining, str(cost), mint, row["strategy"]),
+            )
 
     def positions(self) -> list[Position]:
         rows = self._db.execute("SELECT * FROM positions ORDER BY opened_at, mint").fetchall()
@@ -459,31 +482,40 @@ class Ledger:
         row = self._db.execute(q, (_iso(day_start), _iso(day_start + timedelta(days=1)))).fetchone()
         return int(row["n"])
 
-    def set_day_start_equity(self, day_start: datetime, equity_usd: Decimal) -> None:
-        """Record the first equity of a UTC day (only the first call per day sticks)."""
+    def set_day_start_equity(
+        self, day_start: datetime, equity_usd: Decimal, net_deposits_usd: Decimal | None = None
+    ) -> None:
+        """Record the first equity (and net deposits) of a UTC day (only the first call per day sticks)."""
+        deposits = self.net_deposits_usd() if net_deposits_usd is None else net_deposits_usd
         self._db.execute(
-            "INSERT OR IGNORE INTO day_stats (day, start_equity) VALUES (?,?)",
-            (ensure_utc(day_start).date().isoformat(), str(equity_usd)),
+            "INSERT OR IGNORE INTO day_stats (day, start_equity, start_net_deposits) VALUES (?,?,?)",
+            (ensure_utc(day_start).date().isoformat(), str(equity_usd), str(deposits)),
         )
 
     def day_stats(self, day_start: datetime) -> DayStats:
         """Start equity (day_stats row, else the first snapshot of the day, else the last before it)."""
         day = ensure_utc(day_start).date().isoformat()
         end = day_start + timedelta(days=1)
-        row = self._db.execute("SELECT start_equity FROM day_stats WHERE day=?", (day,)).fetchone()
+        row = self._db.execute(
+            "SELECT start_equity, start_net_deposits FROM day_stats WHERE day=?", (day,)
+        ).fetchone()
         if row is not None:
             start = _dec(row["start_equity"])
+            start_deposits = _dec(row["start_net_deposits"])
         else:
             snap = self._db.execute(
-                "SELECT equity_usd FROM equity_snapshots WHERE ts >= ? AND ts < ? ORDER BY ts, id LIMIT 1",
+                "SELECT equity_usd, net_deposits_usd FROM equity_snapshots WHERE ts >= ? AND ts < ? "
+                "ORDER BY ts, id LIMIT 1",
                 (_iso(day_start), _iso(end)),
             ).fetchone()
             if snap is None:
                 snap = self._db.execute(
-                    "SELECT equity_usd FROM equity_snapshots WHERE ts < ? ORDER BY ts DESC, id DESC LIMIT 1",
+                    "SELECT equity_usd, net_deposits_usd FROM equity_snapshots WHERE ts < ? "
+                    "ORDER BY ts DESC, id DESC LIMIT 1",
                     (_iso(day_start),),
                 ).fetchone()
             start = _dec(snap["equity_usd"]) if snap is not None else Decimal(0)
+            start_deposits = _dec(snap["net_deposits_usd"]) if snap is not None else Decimal(0)
         fills = self._db.execute(
             "SELECT out_mint, in_mint, usd_in, mode FROM fills WHERE ts >= ? AND ts < ?",
             (_iso(day_start), _iso(end)),
@@ -497,7 +529,13 @@ class Ledger:
             if f["out_mint"] not in STABLE_MINTS:
                 buys += _dec(f["usd_in"])
                 entries += 1
-        return DayStats(start_equity=start, buys_usd=buys, swaps=swaps, entries=entries)
+        return DayStats(
+            start_equity=start,
+            buys_usd=buys,
+            swaps=swaps,
+            entries=entries,
+            start_net_deposits=start_deposits,
+        )
 
     # ------------------------------------------------------------------ blocklist
 

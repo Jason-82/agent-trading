@@ -80,23 +80,29 @@ working capital only).
 
 ```
 cd /home/user/agent-trading
-make install        # uv venv --python 3.11 .venv; uv pip install -r requirements.lock; editable install
+make install        # uv venv --python 3.11 .venv; hash-verified install of requirements-dev.lock; editable install
 make test           # offline test suite, no network
-make lint           # ruff check + format check
+make lint           # tools/check_lock.py (hashes + typosquat denylist) + ruff check + format check
 ```
 
 Without `uv`:
 
 ```
 python3.11 -m venv .venv
-.venv/bin/pip install -r requirements.lock
+python3 tools/check_lock.py requirements.lock requirements-dev.lock
+.venv/bin/pip install --require-hashes -r requirements-dev.lock
 .venv/bin/pip install --no-deps -e .
 .venv/bin/python -m pytest -q
 ```
 
-`requirements.lock` is the only dependency source. When it carries `--hash=` lines, install
-with `--require-hashes` (the Dockerfile does this automatically). The optional LLM extra is
-`pip install -e ".[llm]"` (anthropic 1.8.0). There is deliberately no Hyperliquid extra.
+`requirements.lock` (runtime, used by the Dockerfile) and `requirements-dev.lock` (runtime +
+dev + llm extras) are generated with `uv pip compile --generate-hashes` (`make lock`, needs
+network) and carry a hash for every wheel. Every install path uses `--require-hashes`; the
+Dockerfile and `make install` fail loudly when a hash is missing (there is no unhashed
+fallback) and `tools/check_lock.py` rejects typosquat names and any distribution not on its
+reviewed allowlist. Keep the 14-day cooldown: never regenerate the locks the day a new
+release appears. The optional LLM extra (anthropic 1.8.0) is inside the dev lock; there is
+deliberately no Hyperliquid extra.
 
 ### 2.2 `tiller init`
 
@@ -517,10 +523,15 @@ That date expires after 30 days and live mode stops loading; re-read and bump it
 
 `tools/record_fixtures.py` is the fixture recorder. From a **networked machine** with your
 Jupiter key exported and, once registered, your familiars key, it calls Kraken, Coinbase,
-Jupiter (a $10 SOL/USDC order quote with your pubkey as taker, Price V3, Tokens V2 for SOL,
-Shield), the familiars public endpoints plus `/api/agent/me` with the key, and Solana RPC
-(`getAccountInfo` for the SOL mint, `getTokenAccountsByOwner`), redacts every secret, and
-writes the responses as JSON into `tests/fixtures/recorded/`. The schema test then parses
+Jupiter (a $10 USDC -> SOL order quote WITHOUT a taker, so no transaction is ever built; Price
+V3, Tokens V2 for SOL, Shield), the familiars public endpoints plus `/api/agent/me` with the
+key, and Solana RPC (`getAccountInfo` for the SOL mint, `getTokenAccountsByOwner` for
+`--wallet`), redacts every secret (query-string keys, `x-api-key`, `fam_`/`own_`/`jup_`
+tokens, long base58 runs, `apiKey`/`ownerKey`/`loginUrl`) and writes the responses as JSON
+into `tests/fixtures/recorded/`. Run it directly as
+`python tools/record_fixtures.py --wallet <pubkey>` with `TILLER_JUPITER_API_KEY` /
+`TILLER_FAMILIARS_API_KEY` / `TILLER_RPC_URL` exported as needed, and read the files before
+committing them. The schema test then parses
 both the synthetic and the recorded fixtures into the same pydantic models, so a shape
 mismatch surfaces before any live trade.
 
@@ -874,12 +885,17 @@ modes are refused: there is no chain to compare.
 tiller sweep --to <cold USDC owner address> --keep 500 --yes
 ```
 
-Live only. Reads the wallet's USDC balance, keeps `--keep` dollars, and sends the rest to
-`--to` (the owner address; the destination ATA is created idempotently in the same
-transaction), signing with the hot key and printing the amount, the addresses and the
-signature. The transfer is recorded in the ledger as an `out` transfer so net deposits and
-every deposit-adjusted brake stay correct. Without `--yes` it refuses; there is no
-interactive prompt. Double-check `--to`: the command prints it but cannot verify it.
+Live only. Takes the single-instance lock (refuses while `tiller run` holds it: stop the agent
+first), reads the wallet's USDC balance, keeps `--keep` dollars, and sends the rest to `--to`.
+`--to` must be a plain WALLET address: the command calls `getAccountInfo` and refuses (exit 2,
+nothing sent) unless the account is absent or System-Program-owned with no data, because a
+token account or program address as destination would derive an ATA nobody can sign for. It
+prints the destination check, the derived destination USDC ATA, the amount and the signature,
+then polls `getSignatureStatuses` for up to 90 s and records the `out` transfer in the ledger
+ONLY once the transaction is confirmed. If it fails on chain nothing is recorded; if it is
+still unconfirmed after the wait the command exits 1 and tells you to run
+`tiller withdraw --usd <amount> --signature <sig>` once you have verified it landed. Without
+`--yes` it refuses; there is no interactive prompt.
 
 ### Recording deposits and withdrawals
 
@@ -888,15 +904,17 @@ drawdown brakes and the board's P&L all use equity minus net deposits, and nothi
 the chain for incoming transfers. A deposit that is not recorded looks like profit; a manual
 withdrawal that is not recorded looks like a loss and can trip the brakes or the flatten.
 
-Two commands record these transfers (they are being added alongside this runbook; if your
-build refuses them as an invalid choice, record the transfer with a ledger insert into
-`transfers` with `direction` `in`/`out`, the USDC mint, base units and USD, matching what the
-commands would write):
+Two commands record these transfers (mode-aware: they write to the ledger of `--mode` or the
+configured mode; `--signature` makes a repeat of the same transfer a no-op):
 
 ```
-tiller deposit --usd 1000       # after you send USDC to the hot wallet
-tiller withdraw --usd 250       # after a manual transfer out (sweep records itself)
+tiller deposit --usd 1000                                  # after you send USDC to the hot wallet
+tiller withdraw --usd 250 --signature <sig>                # after a manual transfer out (sweep records itself)
+tiller deposit --usd 300 --asset sol --price-usd 150       # a SOL deposit, valued at the transfer-time price
 ```
+
+The day-start snapshot also stores net deposits, so a transfer recorded mid-day never reads
+as a daily loss or gain.
 
 Record a deposit **before** the next tick sees the new balance; otherwise the day's P&L
 jumps by the deposit and the 7/30-day peaks are polluted until the snapshots roll off.

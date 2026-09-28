@@ -34,7 +34,7 @@ def test_sol_beta_cap() -> None:
     assert sol_beta_cap(0.5, cfg) == pytest.approx(0.5)
     assert sol_beta_cap(0.8, cfg) == pytest.approx(0.375)
     assert sol_beta_cap(0.01, cfg) == pytest.approx(0.5)  # sigma floored at 0.05
-    assert sol_beta_cap(None, cfg) == pytest.approx(0.5)
+    assert sol_beta_cap(None, cfg) == 0.0  # unknown vol fails closed (backtest parity)
 
 
 def test_band_is_max_of_pct_and_min_order() -> None:

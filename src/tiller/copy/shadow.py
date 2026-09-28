@@ -225,9 +225,20 @@ class ShadowTracker:
             )
             if t is not None:
                 opened.append(t)
+        max_age = timedelta(minutes=int(getattr(self.cfg, "max_signal_age_min", self.cfg.window_min)))
         for lt in buys:
             trade_id = f"leader:{lt.signature}"
             if trade_id in self._ids:
+                continue
+            if now - lt.ts > max_age:
+                # a buy detected long after the fill (history backfill, RPC replay) is data for the
+                # replay scorer, not a signal: copying it at today's price would corrupt the stats
+                self._ids.add(trade_id)
+                self.ledger.add_event(
+                    "info",
+                    "shadow_stale_signal",
+                    {"id": trade_id, "age_s": int((now - lt.ts).total_seconds())},
+                )
                 continue
             t = await self._open_trade(trade_id, lt.key, lt.mint, lt.price_usd, lt.ts)
             if t is not None:

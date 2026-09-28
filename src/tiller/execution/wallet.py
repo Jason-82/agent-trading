@@ -67,14 +67,23 @@ def _parse_secret(text: str) -> Keypair:
 
 
 def _check_permissions(path: Path) -> None:
-    st = path.stat()
+    """Check the REAL file (symlinks resolved) and its REAL parent directory, and that both are ours."""
+    try:
+        real = path.resolve(strict=True)
+    except OSError as e:
+        raise KeyLoadError(f"{path} cannot be resolved: {e}") from e
+    st = real.stat()
     if not stat.S_ISREG(st.st_mode):
-        raise KeyLoadError(f"{path} is not a regular file")
+        raise KeyLoadError(f"{real} is not a regular file")
     if st.st_mode & 0o077:
-        raise KeyLoadError(f"{path} must be mode 0600 (group/other bits set)")
-    dst = path.parent.stat()
+        raise KeyLoadError(f"{real} must be mode 0600 (group/other bits set)")
+    dst = real.parent.stat()
     if dst.st_mode & 0o077:
-        raise KeyLoadError(f"{path.parent} must be mode 0700 (group/other bits set)")
+        raise KeyLoadError(f"{real.parent} must be mode 0700 (group/other bits set)")
+    if hasattr(os, "getuid"):
+        uid = os.getuid()
+        if st.st_uid != uid or dst.st_uid != uid:
+            raise KeyLoadError(f"{real} and its directory must be owned by the current user")
 
 
 class FileSigner:

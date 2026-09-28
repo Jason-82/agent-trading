@@ -256,3 +256,26 @@ async def test_paper_fill_positions_do_not_confuse_live_reconcile(
     rpc.token_accounts[WALLET] = [a for a in owned(load_fixture) if a.mint != TOKEN_X]
     rep = await reconcile(rpc, tmp_ledger, FakePriceSource(PRICES), WALLET, None, sim_clock)
     assert rep.ok
+
+
+async def test_recovered_fill_values_the_token_leg_from_the_usdc_leg(
+    load_fixture: Any, tmp_ledger: Ledger, sim_clock: SimClock
+) -> None:
+    """Crash recovery hours later: the SOL leg is priced by the USDC leg of the same transaction,
+    not by the (stale) current mark."""
+    ids = load_fixture("identities")
+    sig = ids["buy_signature"]
+    order = Order.model_validate(load_fixture("jupiter/order_ok"))
+    tmp_ledger.record_order(buy_req(), order, sig)
+    rpc = chain_rpc(
+        load_fixture,
+        statuses={sig: load_fixture("rpc/statuses_finalized")["result"]["value"][0]},
+        transactions={sig: load_fixture("rpc/tx_swap_buy")["result"]},
+    )
+    rpc.balances[WALLET] = int(Decimal("0.6658") * LAMPORTS) + RESERVE
+    stale = {**PRICES, SOL_MINT: PRICES[SOL_MINT] * Decimal("0.9")}  # SOL fell 10% since the fill
+    await reconcile(
+        rpc, tmp_ledger, FakePriceSource(stale), WALLET, None, sim_clock, token_decimals={TOKEN_X: 6}
+    )
+    fills = tmp_ledger.fills()
+    assert len(fills) == 1 and fills[0].usd_out == fills[0].usd_in, fills[0]

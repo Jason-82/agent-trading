@@ -379,7 +379,9 @@ class FamiliarsClient:
         """GET with 429 backoff (reads only); raises on any final non-2xx except 404."""
         attempt = 0
         while True:
-            resp = await self._send("GET", path, auth=auth)
+            resp = await self._send(
+                "GET", path, auth=auth, redact=auth
+            )  # authenticated reads may echo owner secrets
             if resp.status_code == 429 and attempt < self._max_429_retries:
                 await self._sleep(self._backoff(attempt, resp.headers))
                 attempt += 1
@@ -449,7 +451,7 @@ class FamiliarsClient:
         body = patch.wire()
         if not body:
             raise ValueError("profile patch is empty")
-        resp = await self._send("PATCH", path, auth=True, json_body=body)
+        resp = await self._send("PATCH", path, auth=True, json_body=body, redact=True)
         if resp.status_code >= 400:
             raise FamiliarsHttpError(resp.status_code, resp.text, path)
         data = self._json(resp, path)

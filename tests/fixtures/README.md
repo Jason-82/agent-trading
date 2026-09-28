@@ -3,7 +3,7 @@
 **synthetic: true** for every JSON file under `jupiter/`, `rpc/`, `kraken/` and `coinbase/`.
 They were hand-built to the documented API shapes (Jupiter Swap V2 `/order` + `/execute`,
 Price V3, Tokens V2 search, Shield, Solana JSON-RPC, Kraken OHLC/Ticker, Coinbase candles)
-by `scratchpad/build_fixtures.py`. Nothing in them was recorded from a live API, no real key
+by `a generator script (not committed)`. Nothing in them was recorded from a live API, no real key
 or wallet appears, and every address is a valid base58 32-byte pubkey derived from fixed
 seeds (`tests/fixtures/identities.json`):
 

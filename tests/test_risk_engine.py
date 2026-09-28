@@ -370,7 +370,17 @@ def test_size_order_each_binding_cap() -> None:
     )
     s = size_order(buy("5000"), acct, limits(), CFG, Decimal(100_000), day, None)
     assert s is not None and s.binding_cap == "pool_liquidity" and s.usd == Decimal(1000)
-    s = size_order(buy("5000"), acct, limits(max_position_usd=Decimal(250)), CFG, None, day, None)
+    # maxPositionUsd caps the RESULTING position: ~3907 USD of SOL is already held, so no SOL entry
+    assert size_order(buy("5000"), acct, limits(max_position_usd=Decimal(250)), CFG, None, day, None) is None
+    s = size_order(
+        buy("5000", mint=TOKEN_X, strategy="copy_consensus"),
+        acct,
+        limits(max_position_usd=Decimal(250)),
+        CFG,
+        None,
+        day,
+        None,
+    )
     assert s is not None and s.binding_cap == "max_position" and s.usd == Decimal(250)
     spent = DayStats(start_equity=eq, buys_usd=Decimal(400), swaps=2, entries=2)
     s = size_order(buy("5000"), acct, limits(daily_limit_usd=Decimal(600)), CFG, None, spent, None)

@@ -1,7 +1,8 @@
 # Tiller: python:3.11-slim, non-root, read-only root filesystem except /state.
 # Build:  docker build -t tiller .
 # Run:    docker run --read-only --tmpfs /tmp -v tiller-state:/state --env-file secrets.env tiller run
-# The env file carries AGENT_WALLET_SECRET / TILLER_*_API_KEY; never bake secrets into the image.
+# The env file carries AGENT_WALLET_SECRET / TILLER_*_API_KEY; never bake secrets into the image
+# (.dockerignore excludes config/tiller.toml, owner_overrides.json, config/secrets*, *.env, keys, state/).
 FROM python:3.11-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -15,12 +16,16 @@ RUN groupadd --gid 10001 tiller \
 
 WORKDIR /app
 COPY pyproject.toml requirements.lock README.md* ./
-# --require-hashes once WP-F regenerates the lock with pip-compile --generate-hashes (plain pins until then)
-RUN if grep -q -- "--hash=" requirements.lock; then pip install --require-hashes -r requirements.lock; else pip install -r requirements.lock; fi
+COPY tools/check_lock.py ./tools/check_lock.py
+# Supply chain (spec execution rule 10): the lock MUST carry hashes and pass the typosquat check;
+# the build fails loudly otherwise. There is deliberately no unhashed fallback.
+RUN python tools/check_lock.py requirements.lock \
+    && pip install --require-hashes --no-deps -r requirements.lock
 COPY src ./src
-COPY config ./config
+# only the example config files: the live config and overrides are mounted or written at runtime
+COPY config/tiller.example.toml config/owner_overrides.example.json ./config/
 COPY data ./data
-RUN pip install --no-deps . && rm -rf /root/.cache
+RUN pip install --no-deps --no-build-isolation . && rm -rf /root/.cache
 
 USER tiller
 WORKDIR /app

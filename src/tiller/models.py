@@ -13,11 +13,12 @@ Conventions
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SOL_MINT = "So11111111111111111111111111111111111111112"
 USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
@@ -299,8 +300,24 @@ class OwnerLimits(DomainModel):
         return _to_utc(v)
 
 
+SYMBOL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_$.\-]{0,11}$")
+"""Token symbols are attacker-controlled metadata: only a short ticker-like token is accepted."""
+
+
+def safe_symbol(symbol: str | None, mint: str) -> str:
+    """``symbol`` when it looks like a ticker, else a digit-free prefix of the mint."""
+    if symbol and SYMBOL_RE.match(symbol):
+        return symbol
+    letters = "".join(ch for ch in mint if ch.isalpha())[:6]
+    return letters or "TOKEN"
+
+
 class TradeContext(DomainModel):
-    """Numbers-and-enums-only context handed to the narrator (never third-party text)."""
+    """Numbers-and-enums-only context handed to the narrator (never third-party text).
+
+    ``symbol`` is sanitised at construction: anything that is not a short ticker (Tokens V2
+    metadata is attacker-controlled) is replaced by a prefix of the mint.
+    """
 
     strategy: str
     rule: str
@@ -315,6 +332,13 @@ class TradeContext(DomainModel):
     paper: bool
     signature: str | None = None
 
+    @model_validator(mode="after")
+    def _sanitise_symbol(self) -> TradeContext:
+        safe = safe_symbol(self.symbol, self.mint)
+        if safe != self.symbol:
+            object.__setattr__(self, "symbol", safe)
+        return self
+
 
 # --------------------------------------------------------------------------- ledger helpers
 
@@ -326,6 +350,8 @@ class DayStats(DomainModel):
     buys_usd: Decimal
     swaps: int
     entries: int
+    start_net_deposits: Decimal = Decimal(0)
+    """Net deposits at the day-start snapshot, so transfers never move the daily-loss brake."""
 
 
 class PendingPost(DomainModel):
